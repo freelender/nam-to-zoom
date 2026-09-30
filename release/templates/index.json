@@ -1,0 +1,37 @@
+{
+  "format": "nam2zoom.templates.v1",
+  "banks": {
+    "1": {
+      "sha256": "da2dfacbd9e62d9bb337e5be794bdb16a8147cc995debaff363919ec655945f8",
+      "weights_offset": 11366,
+      "labels_offset": 14006
+    },
+    "2": {
+      "sha256": "2397445bd3408716e1b28516774e114d314c6f80e11b5c7619ed3d01f8ed6cb3",
+      "weights_offset": 11366,
+      "labels_offset": 16638
+    },
+    "3": {
+      "sha256": "39d72b8ad79c82aa35aede78f6dac80d7bbf2b7f50a40d46dce0ff6dbfb0eaf1",
+      "weights_offset": 11430,
+      "labels_offset": 19342
+    },
+    "4": {
+      "sha256": "93b31d43e2fd107803eecdeeebcd71aa7d45bb45163cd2579b93601da86a77d2",
+      "weights_offset": 11430,
+      "labels_offset": 21974
+    },
+    "5": {
+      "sha256": "a8d2769803657646dc97ec04f961891fc9a4529be6f823e4abe2e3f2d09211a3",
+      "weights_offset": 11430,
+      "labels_offset": 24614
+    }
+  },
+  "dsp_source_sha256": {
+    "dsp/nam_a2_bank_zd2/bank_effect.c": "b510410ebae4d1fbc3416726a9f5cb9b0bd6d7afc318358a29fcba9fa8e0c63e",
+    "dsp/nam_a2_compact/compact_pair.c": "959a82b31080feda84aac978a1a3a7c2f7917ed26b18435ed6018a258c990c9c",
+    "dsp/nam_a2_compact/compact_pair.h": "341cf3cb5e3baffd0292e6bc4fb646ec747681707e3be8084cb060e00c1e0fe0",
+    "dsp/nam_a2_compact/compact_kernel.h": "a4132ee3962fe0d8f45cfa9c87fa0479d1a280f2495c022c1c92bb235d955059"
+  },
+  "icon_sha256": "59c19e338ddb9bab408752b0c2f016188cd3724e94cfe2ff2c051bb302e697bd"
+}

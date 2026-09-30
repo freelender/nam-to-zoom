@@ -10,7 +10,6 @@ import os
 from pathlib import Path
 import random
 import re
-import shutil
 import statistics
 import struct
 import subprocess
@@ -175,7 +174,7 @@ def main():
     for relative in report["sources"]:
         destination = output / "sources" / relative
         destination.parent.mkdir(parents=True, exist_ok=True)
-        shutil.copyfile(ROOT / relative, destination)
+        destination.write_bytes((ROOT / relative).read_bytes())
     print(json.dumps(report, indent=2))
 
 

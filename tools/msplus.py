@@ -10,6 +10,7 @@ from pathlib import Path
 import sys
 from typing import Any
 
+from atomic_replace import atomic_replace
 from msplus_midi import (
     MidiTimeout,
     MidiUnavailable,
@@ -296,7 +297,7 @@ def _file_record(path: Path, data: bytes, **extra: Any) -> dict[str, Any]:
 def _write_manifest(path: Path, manifest: dict[str, Any]) -> None:
     temporary = path.with_suffix(".json.tmp")
     temporary.write_text(json.dumps(manifest, indent=2) + "\n", encoding="utf-8")
-    temporary.replace(path)
+    atomic_replace(temporary, path)
 
 
 if __name__ == "__main__":

@@ -19,10 +19,12 @@ from test_compact_shape import model  # noqa: E402
 
 class ProductTests(unittest.TestCase):
     def test_embedded_di_matches_desktop_digest(self):
-        source = (ROOT / "apps/nam2zoom-desktop/Program.cs").read_text(encoding="utf-8")
-        expected = re.search(r'BundledDiSha256 = "([A-F0-9]+)"', source).group(1)
+        # This macOS port has no apps/nam2zoom-desktop (WinForms); its SwiftUI
+        # replacement carries the same constant and embedded resource.
+        source = (ROOT / "Sources/nam2zoomMac/AppViewModel.swift").read_text(encoding="utf-8")
+        expected = re.search(r'bundledDiSha256 =\s*\n?\s*"([A-F0-9]+)"', source).group(1)
         actual = hashlib.sha256(
-            (ROOT / "apps/nam2zoom-desktop/Assets/TRAINING_DI.wav").read_bytes()
+            (ROOT / "Sources/nam2zoomMac/Resources/TRAINING_DI.wav").read_bytes()
         ).hexdigest().upper()
         self.assertEqual(actual, expected)
 

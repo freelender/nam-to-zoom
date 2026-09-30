@@ -4,8 +4,8 @@ from __future__ import annotations
 
 import hashlib
 import json
+import platform
 import re
-import shutil
 import struct
 import subprocess
 from pathlib import Path
@@ -69,9 +69,9 @@ def prepare_bank(models, output: Path) -> Path:
     output.mkdir(parents=True)
     for source in (SOURCE / "bank_effect.c", KERNEL / "compact_pair.c",
                    KERNEL / "compact_pair.h", KERNEL / "compact_kernel.h"):
-        shutil.copyfile(source, output / source.name)
+        (output / source.name).write_bytes(source.read_bytes())
     icon_name = "nam_a2_zoom_ms50g_plus.png"
-    shutil.copyfile(SOURCE / "assets" / icon_name, output / icon_name)
+    (output / icon_name).write_bytes((SOURCE / "assets" / icon_name).read_bytes())
     count = len(models)
     selector_labels = [entry[1] for entry in models]
     if count == 1:
@@ -143,7 +143,9 @@ def build_bank(manifest: Path) -> Path:
         return fill_template(templates, manifest)
     if (ROOT / "runtime/portable.marker").exists():
         raise FileNotFoundError("Portable bank templates are missing; extract the complete ZIP again")
-    python = STOMPHACKS / ".venv" / "Scripts" / "python.exe"
+    venv_bin = "Scripts" if platform.system() == "Windows" else "bin"
+    venv_python = "python.exe" if platform.system() == "Windows" else "python3"
+    python = STOMPHACKS / ".venv" / venv_bin / venv_python
     builder = STOMPHACKS / "tools" / "zd2_make_effect.py"
     compiler = TOOLCHAIN / "bin" / "cl6x.exe"
     for dependency in (python, builder, compiler):

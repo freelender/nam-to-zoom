@@ -1,3 +1,9 @@
+// Not used by the macOS port: this smoke test exercises PortableRuntime.cs
+// (Windows-only self-contained portable ZIP bootstrap - VC++ redist check,
+// bundled Python setup), which lives in the Windows WinForms app
+// (apps/nam2zoom-desktop) that this fork does not include. Kept commented
+// out, rather than deleted, for reference against the upstream project.
+/*
 using Nam2ZoomDesktop;
 
 if (args.Length != 2 || args[1] is not ("--check" or "--setup-cpu")) {
@@ -13,3 +19,4 @@ if (args[1] == "--setup-cpu")
     await PortableRuntime.EnsureTrainingAsync(root, false, Console.WriteLine, CancellationToken.None);
 Console.WriteLine($"TrainingReady: {PortableRuntime.TrainingReady(root)}");
 return PortableRuntime.TrainingReady(root) ? 0 : 1;
+*/

@@ -5,7 +5,6 @@ from __future__ import annotations
 import hashlib
 import json
 from pathlib import Path
-import shutil
 import subprocess
 import sys
 import tempfile
@@ -272,8 +271,8 @@ def install_bank(effect: Path, session: Path, effect_hash: str,
     session.mkdir(parents=True, exist_ok=False)
     frozen = session / "approved"
     frozen.mkdir()
-    shutil.copy2(effect, frozen / BANK_NAME)
-    shutil.copy2(icon, frozen / BANK_ICON)
+    (frozen / BANK_NAME).write_bytes(effect.read_bytes())
+    (frozen / BANK_ICON).write_bytes(icon.read_bytes())
     effect, icon = frozen / BANK_NAME, frozen / BANK_ICON
     verify_approved(effect, icon, effect_hash, icon_hash)
 

@@ -1,17 +1,30 @@
+# External pinned checkouts + Python venvs, provisioned by setup-mac.sh
 .tooling/
-.vs/
-**/bin/
-**/obj/
+
+# Swift Package Manager build cache/output
+.build/
+nam2zoom.app/
+*.dSYM/
+
+# Native renderer build output
+reference/nam_a2/build-core-ninja/
+
+# Python
 **/__pycache__/
 **/*.py[cod]
-reference/nam_a2/build-core-ninja/
+
+# Pedal backups and build/session output (regenerated per run, may contain
+# a user's own pedal state - never meant to be committed)
 Backup/
-dist/
-release/templates/
 n2z-bank-*/
+*.log
+
+# release/templates/*.ZD2 and *.ZIC are intentionally tracked (see README):
+# they let the app build banks without the Windows/Linux-only TI compiler.
+# Any other ZD2/ZIC (offline build output, pedal backups) stays ignored.
 *.ZD2
 *.ZIC
-*.out
-*.user
-*.suo
-*.log
+!release/templates/*.ZD2
+!release/templates/*.ZIC
+
+.DS_Store
