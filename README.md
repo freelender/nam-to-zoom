@@ -23,6 +23,9 @@ has also been tested and confirmed working on MS-70CDR+. This is still a
 preview release: new models, devices, saved patches,
 and effect chains require their own checks before you trust them on hardware.
 
+A native macOS app lives in [apps/nam2zoom-mac](apps/nam2zoom-mac), mirroring
+this Windows app's backend and safety flow; see its own README for setup.
+
 ## Choose Your Path
 
 | Goal | Start here | Tools needed |

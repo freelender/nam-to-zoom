@@ -19,12 +19,19 @@ from test_compact_shape import model  # noqa: E402
 
 class ProductTests(unittest.TestCase):
     def test_embedded_di_matches_desktop_digest(self):
-        source = (ROOT / "apps/nam2zoom-desktop/Program.cs").read_text(encoding="utf-8")
-        expected = re.search(r'BundledDiSha256 = "([A-F0-9]+)"', source).group(1)
+        # apps/nam2zoom-mac (SwiftUI) reads apps/nam2zoom-desktop's own
+        # TRAINING_DI.wav directly rather than bundling a second copy; both
+        # apps check the same constant against the same shared file.
+        desktop_source = (ROOT / "apps/nam2zoom-desktop/Program.cs").read_text(encoding="utf-8")
+        desktop_expected = re.search(r'BundledDiSha256 = "([A-F0-9]+)"', desktop_source).group(1)
+        mac_source = (ROOT / "apps/nam2zoom-mac/Sources/nam2zoomMac/AppViewModel.swift").read_text(
+            encoding="utf-8")
+        mac_expected = re.search(r'bundledDiSha256 =\s*\n?\s*"([A-F0-9]+)"', mac_source).group(1)
+        self.assertEqual(mac_expected, desktop_expected)
         actual = hashlib.sha256(
             (ROOT / "apps/nam2zoom-desktop/Assets/TRAINING_DI.wav").read_bytes()
         ).hexdigest().upper()
-        self.assertEqual(actual, expected)
+        self.assertEqual(actual, desktop_expected)
 
     def test_prepare_one_model_bank(self):
         with tempfile.TemporaryDirectory() as temp:

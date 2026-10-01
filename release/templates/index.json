@@ -1,0 +1,37 @@
+{
+  "format": "nam2zoom.templates.v1",
+  "banks": {
+    "1": {
+      "sha256": "a81077c24536e902b3969e9931b07528c5d9fd67e8e7ac7c45fa2ad33a5f7541",
+      "weights_offset": 11942,
+      "labels_offset": 14582
+    },
+    "2": {
+      "sha256": "9e259900171090aeed9d89efe1173d90885dea371643d2b54ef20ba38a170a65",
+      "weights_offset": 11942,
+      "labels_offset": 17214
+    },
+    "3": {
+      "sha256": "a427d6d5b114a268e28c21bc98584d87ad3e45aa40dd2ba453033032c58c96fb",
+      "weights_offset": 11910,
+      "labels_offset": 19822
+    },
+    "4": {
+      "sha256": "eadff6ca6c36cb89de54976e5e700db43822c3d776d71591e6fbbc4b497a40de",
+      "weights_offset": 11910,
+      "labels_offset": 22454
+    },
+    "5": {
+      "sha256": "573a6223594afcbbc0f187c548626b56b9328788533e3b6bb73afb40a8b4a71f",
+      "weights_offset": 11910,
+      "labels_offset": 25094
+    }
+  },
+  "dsp_source_sha256": {
+    "dsp/nam_a2_bank_zd2/bank_effect.c": "7caba887990bf8231bd58f86e142e5c25cfb6eb49ea6769904e2ed83cfa21fed",
+    "dsp/nam_a2_compact/compact_pair.c": "959a82b31080feda84aac978a1a3a7c2f7917ed26b18435ed6018a258c990c9c",
+    "dsp/nam_a2_compact/compact_pair.h": "341cf3cb5e3baffd0292e6bc4fb646ec747681707e3be8084cb060e00c1e0fe0",
+    "dsp/nam_a2_compact/compact_kernel.h": "a4132ee3962fe0d8f45cfa9c87fa0479d1a280f2495c022c1c92bb235d955059"
+  },
+  "icon_sha256": "59c19e338ddb9bab408752b0c2f016188cd3724e94cfe2ff2c051bb302e697bd"
+}

@@ -7,6 +7,7 @@ import argparse
 import hashlib
 import json
 import math
+import platform
 from pathlib import Path
 import struct
 import subprocess
@@ -173,7 +174,9 @@ def main() -> int:
             print(f"FAIL {error}")
         return 1
 
-    python = args.stomphacks / ".venv" / "Scripts" / "python.exe"
+    venv_bin = "Scripts" if platform.system() == "Windows" else "bin"
+    venv_python = "python.exe" if platform.system() == "Windows" else "python3"
+    python = args.stomphacks / ".venv" / venv_bin / venv_python
     checker = args.stomphacks / "tools" / "flst_check.py"
     if not python.is_file() or not checker.is_file():
         print("FAIL Stomphacks FLST simulation dependencies are unavailable")

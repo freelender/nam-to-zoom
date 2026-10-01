@@ -1,3 +1,9 @@
+<!--
+  Not used by the macOS port: builds Program.cs against PortableRuntime.cs
+  from the Windows WinForms app (apps/nam2zoom-desktop), which this fork
+  does not include. Kept commented out, rather than deleted, for reference
+  against the upstream project.
+
 <Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
     <OutputType>Exe</OutputType>
@@ -9,3 +15,4 @@
     <Compile Include="../../apps/nam2zoom-desktop/PortableRuntime.cs" Link="PortableRuntime.cs" />
   </ItemGroup>
 </Project>
+-->

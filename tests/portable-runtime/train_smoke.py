@@ -3,6 +3,7 @@
 import argparse
 import json
 import os
+import platform
 from pathlib import Path
 import subprocess
 import sys
@@ -47,7 +48,8 @@ if len(exports) != 1:
     raise RuntimeError("training did not export exactly one NAM")
 inspect(json.loads(exports[0].read_text()))
 rendered = work / "rendered.wav"
-subprocess.run([str(root / "reference/nam_a2/build-core-ninja/core_render.exe"),
+renderer_name = "core_render.exe" if platform.system() == "Windows" else "core_render"
+subprocess.run([str(root / "reference/nam_a2/build-core-ninja" / renderer_name),
                 str(exports[0]), str(dry), str(rendered)], check=True)
 output, output_rate = sf.read(rendered)
 assert output_rate == rate and len(output) == len(audio) and np.isfinite(output).all()

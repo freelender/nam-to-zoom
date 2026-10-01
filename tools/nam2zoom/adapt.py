@@ -6,10 +6,13 @@ import hashlib
 import json
 import math
 import os
+import platform
 from pathlib import Path
 import subprocess
 import sys
 import tempfile
+
+from atomic_replace import atomic_replace
 
 from .compact import inspect as inspect_compact
 from .hybrid import classify
@@ -17,7 +20,8 @@ from .ir import bake, fit_teacher_level, load_ir
 
 
 ROOT = Path(__file__).resolve().parents[2]
-RENDERER = ROOT / "reference/nam_a2/build-core-ninja/core_render.exe"
+_RENDERER_NAME = "core_render.exe" if platform.system() == "Windows" else "core_render"
+RENDERER = ROOT / "reference/nam_a2/build-core-ninja" / _RENDERER_NAME
 MODEL_TEMPLATE = ROOT / "training/a2-mid-44100/model.json"
 LEARNING_TEMPLATE = ROOT / "training/a2-compact-44100/learning.json"
 PIPELINE_VERSION = "teacher-student-full-v1"
@@ -282,7 +286,7 @@ def adapt(source: Path, di: Path, cache: Path, *, epochs: int = 100,
                 index["ir_gain_db"] = report["ir_gain_db"]
             tmp = cache / f"{key}.json.tmp"
             tmp.write_text(json.dumps(index, indent=2) + "\n", encoding="utf-8")
-            tmp.replace(cache / f"{key}.json")
+            atomic_replace(tmp, cache / f"{key}.json")
             print(f"Reusing verified completed adaptation: {student}", flush=True)
             announce_result(student, report, max_esr)
             return student
@@ -342,7 +346,7 @@ def adapt(source: Path, di: Path, cache: Path, *, epochs: int = 100,
         index["ir_gain_db"] = ir_level["ir_gain_db"]
     tmp = cache / f"{key}.json.tmp"
     tmp.write_text(json.dumps(index, indent=2) + "\n", encoding="utf-8")
-    tmp.replace(cache / f"{key}.json")
+    atomic_replace(tmp, cache / f"{key}.json")
     announce_result(student, report, max_esr)
     print(f"Adapted model ready: {student}", flush=True)
     return student
