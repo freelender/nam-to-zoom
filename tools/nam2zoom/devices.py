@@ -37,6 +37,15 @@ SUPPORTED_DEVICES = (
         model_number=0x0026,
         firmware="1.20",
         patch_count=100,
+        bank_hardware_tested=True,
+    ),
+    DeviceProfile(
+        key="ms60b-plus",
+        name="Zoom MS-60B+",
+        family_code=0x006E,
+        model_number=0x0027,
+        firmware="1.20",
+        patch_count=100,
         bank_hardware_tested=False,
     ),
 )

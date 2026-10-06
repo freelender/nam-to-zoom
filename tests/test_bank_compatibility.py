@@ -13,6 +13,7 @@ sys.path.insert(0, str(ROOT / "tools"))
 sys.path.insert(0, str(ROOT / ".tooling/stomphacks/tools-pedal"))
 
 from nam2zoom import deploy
+from nam2zoom.devices import require_supported_device
 import offline_effect_audit
 import zd2
 import pedal_diy
@@ -39,7 +40,7 @@ class BankCompatibilityTests(unittest.TestCase):
              patch.object(pedal_diy, "stock_zic_bases", return_value={deploy.BANK_ICON}):
             self.assertFalse(pedal_diy.classify(deploy.BANK_NAME)[0])
 
-    def check_existing(self, mode, effect_id, name="N2Z Bank"):
+    def check_existing(self, mode, effect_id, name="N2Z Bank", device=None):
         with tempfile.TemporaryDirectory() as temporary:
             session = Path(temporary)
             backup = session / "backup"
@@ -47,23 +48,26 @@ class BankCompatibilityTests(unittest.TestCase):
             files.mkdir(parents=True)
             for filename in (deploy.BANK_NAME, deploy.BANK_ICON, "FLST_SEQ.ZT2"):
                 (files / filename).write_bytes(b"fixture")
+            family, model, firmware = device.identity if device else (1, 1, "1.40")
             (backup / "manifest.json").write_text(json.dumps({"identity": {
-                "family_code": 1, "model_number": 1, "version": "1.40"}}))
-            profile = SimpleNamespace(name="MS-50G+", firmware="1.40", patch_count=1)
+                "family_code": family, "model_number": model, "version": firmware}}))
+            profile = device or SimpleNamespace(name="MS-50G+", firmware="1.40", patch_count=1)
             entries = [(effect_id >> 24, deploy.BANK_NAME, "0.01", effect_id, 1)]
             flst = Mock()
             flst.validate_flst.return_value = (True, [], entries)
             flst.parse_entries.return_value = entries
-            outputs = ["Family: 0x01\nModel: 0x01\nVersion: 1.40\n",
-                       "Patches: 1\n", "", "\n".join(
-                           (deploy.BANK_NAME, deploy.BANK_ICON, "FLST_SEQ.ZT2"))]
+            outputs = [f"Family: 0x{family:04x}\nModel: 0x{model:04x}\nVersion: {firmware}\n",
+                       f"Patches: {profile.patch_count}\n"]
+            outputs.extend([""] * profile.patch_count)
+            outputs.append("\n".join((deploy.BANK_NAME, deploy.BANK_ICON, "FLST_SEQ.ZT2")))
 
             def download(filename, destination):
                 destination.write_bytes((files / filename).read_bytes())
 
-            with patch.object(deploy, "_profile", return_value=profile), \
-                 patch.object(deploy, "require_stock_patches"), \
-                 patch.object(deploy, "require_stock_patch"), \
+            with patch.object(deploy, "_profile", side_effect=(
+                     deploy._profile if device else lambda *_: profile)), \
+                 patch.object(deploy, "require_stock_patches") as stock_patches, \
+                 patch.object(deploy, "require_stock_patch") as stock_patch, \
                  patch.object(deploy, "_flst", return_value=flst), \
                  patch.object(deploy, "_run", side_effect=outputs), \
                  patch.object(deploy, "_download", side_effect=download), \
@@ -72,8 +76,19 @@ class BankCompatibilityTests(unittest.TestCase):
                  patch.object(zd2, "parse_zd2_bytes", return_value=SimpleNamespace(
                      effect_id=effect_id, name=name)):
                 if mode == "backup":
-                    return deploy.plan_backup(None, None, backup, session / "current")
-                return deploy.plan_live(None, None, session, session / "current")[0]
+                    result = deploy.plan_backup(None, None, backup, session / "current")
+                    stock_patches.assert_called_once_with(session / "current", backup, profile.patch_count)
+                    return result
+                result = deploy.plan_live(None, None, session, session / "current")[0]
+                self.assertEqual(stock_patch.call_count, profile.patch_count + 1)
+                return result
+
+    def test_ms60b_plus_both_preflights_accept_previous_and_current_banks(self):
+        device = require_supported_device(0x006E, 0x0027, "1.20")
+        for mode in ("backup", "live"):
+            for effect_id in (0x07000F87, deploy.BANK_ID):
+                with self.subTest(mode=mode, effect_id=hex(effect_id)):
+                    self.assertTrue(self.check_existing(mode, effect_id, device=device))
 
     def test_both_preflights_accept_previous_and_current_banks(self):
         for mode in ("backup", "live"):

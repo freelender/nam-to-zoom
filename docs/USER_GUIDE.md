@@ -4,7 +4,7 @@
 
 Use the **Windows x64 portable ZIP** from the project's GitHub Releases, not the source-code ZIP. Extract the whole folder to a writable location such as Downloads, then run `nam2zoom-desktop.exe`. Keep all the files together. No developer tools, separate Python installation, or separate .NET installation are needed.
 
-This package is a preview. Test the new Mix-control effect before saving a patch. Installation supports Zoom MS-50G+ firmware 1.40 and experimentally supports Zoom MS-70CDR+ firmware 1.20. No pedal firmware or NAM models are included.
+This package is a preview. Test the new Mix-control effect before saving a patch. Installation supports Zoom MS-50G+ firmware 1.40 and Zoom MS-70CDR+ firmware 1.20, and experimentally supports Zoom MS-60B+ firmware 1.20. No pedal firmware or NAM models are included.
 
 The project EXE is not code-signed; Windows may warn about an unfamiliar app. Obtain the ZIP from the project's own release and verify it before approving a warning.
 
@@ -24,7 +24,7 @@ Each successful conversion is also saved in `Converted_NAM` beside `nam2zoom-des
 
 ## Install Or Remove
 
-Before replacing/removing N2Z Bank, disable autosave, select a stock patch, and remove custom effects from saved patches. The safety path checks the current patch and all 100 saved patches and refuses unsafe replacement. It accepts only MS-50G+ firmware 1.40 or MS-70CDR+ firmware 1.20 and detects the model automatically.
+Before replacing/removing N2Z Bank, disable autosave, select a stock patch, and remove custom effects from saved patches. The safety path checks the current patch and all 100 saved patches and refuses unsafe replacement. It accepts only MS-50G+ firmware 1.40, MS-70CDR+ firmware 1.20, or MS-60B+ firmware 1.20 and detects the model automatically.
 
 **Build + Install** asks for separate approval of the exact effect/icon hashes. If the effect already exists, the app replaces it instead of adding a duplicate. The app validates the effect, identity, autosave, patches, effect list, and readback. **Uninstall effect** removes the existing N2Z Bank using the same guarded checks; it does not reset the pedal or delete stock effects.
 
@@ -48,12 +48,12 @@ The amp receives the average of the left and right channels and sends its mono o
 
 Load 150 is declared scheduling metadata, not a measured DSP percentage. The earlier six-control binary passed a saved chain with N2Z, ZNR, RackComp, TS Drive, Hall REV, and LowPassFL. Substituting FD B-MAN led to PROCESS OVERFLOW on N2Z after reboot. Multiple N2Z instances are unsupported. Every new binary and chain needs its own audio, patch recall, and reboot test before being treated as working.
 
-The default seven-control effect uses the two-sample kernel reported working on an MS-50G+ with firmware 1.40 on 2026-09-29. This leaves model weights and geometry unchanged. MS-70CDR+ support is based on its shared MS Plus protocol and upstream custom-effect testing, but N2Z Bank has not been tested on that model. Treat MS-70CDR+ installation as experimental, start with N2Z as the only effect in an unsaved patch, and report the exact pedal firmware and result. The portable package still needs fresh-PC validation before promotion from preview. Guarded installation reduces risk but does not eliminate the possibility of freezing or permanently disabling a pedal.
+The default seven-control effect uses the two-sample kernel reported working on an MS-50G+ with firmware 1.40 on 2026-09-29. This leaves model weights and geometry unchanged. Users have also confirmed N2Z Bank working on MS-70CDR+, and portable conversions working with both CPU and NVIDIA GPU training. MS-60B+ support uses the shared MS Plus protocol but awaits N2Z Bank hardware testing. Treat MS-60B+ installation as experimental, start with N2Z as the only effect in an unsaved patch, and report the exact pedal firmware and result. On MS-60B+, N2Z Bank appears in PREAMP. Guarded installation reduces risk but does not eliminate the possibility of freezing or permanently disabling a pedal.
 
 ## Troubleshooting
 
 - Run from an extracted, writable folder, not inside the ZIP or under Program Files. Do not copy only the EXE.
 - A failed dependency download can be retried with **Build**. Check internet access and free disk space. Do not use `setup.ps1`; that script is for developers.
 - If CUDA is unavailable, the downloaded GPU build can still run on CPU; update the NVIDIA driver separately if appropriate for your hardware.
-- Close other programs using the Zoom MIDI port if connection checks fail. Confirm USB connection and supported firmware: 1.40 on MS-50G+ or 1.20 on MS-70CDR+.
+- Close other programs using the Zoom MIDI port if connection checks fail. Confirm USB connection and supported firmware: 1.40 on MS-50G+, or 1.20 on MS-70CDR+ or MS-60B+.
 - Audio conversion quality and GPU speed vary by model and PC. More epochs are not a guarantee of a closer match.

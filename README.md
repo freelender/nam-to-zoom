@@ -6,6 +6,7 @@
 | :------------ | :--------------------------------- |
 | **MS-50G+**   | **Supported** - tested and working |
 | **MS-70CDR+** | **Supported** - tested and working |
+| **MS-60B+**   | **Experimental** - awaiting N2Z Bank hardware testing |
 
 _More devices to come._
 
@@ -79,8 +80,10 @@ user model weights are never distributed.
 ## Compatibility And Safety
 
 - Windows 10/11 x64.
-- Pedal installation supports Zoom MS-50G+ firmware 1.40 and
-  Zoom MS-70CDR+ firmware 1.20. Device identity is detected
+- Pedal installation supports Zoom MS-50G+ firmware 1.40,
+  Zoom MS-70CDR+ firmware 1.20, and experimentally Zoom MS-60B+
+  firmware 1.20. N2Z Bank has not yet been hardware-tested on MS-60B+.
+  Device identity is detected
   automatically; other models and firmware versions are refused.
 - The effect declares load 150; this is patch-admission metadata, not measured
   DSP utilization.

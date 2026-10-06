@@ -1225,8 +1225,8 @@ internal sealed class MainForm : Form
                       + "If installation fails, there will be no complete pedal backup. ")
                 + "An existing N2Z Bank will be uninstalled first. "
                 + "It will refuse if the current or any saved patch contains a non-stock effect.\n\n"
-                + "Supported targets are MS-50G+ firmware 1.40 and MS-70CDR+ firmware 1.20. "
-                + "The bank has been hardware-tested on MS-50G+ only; MS-70CDR+ support is experimental.\n\n"
+                + "Supported targets are MS-50G+ firmware 1.40, MS-70CDR+ firmware 1.20, and MS-60B+ firmware 1.20. "
+                + "The bank has been hardware-tested on MS-50G+ and MS-70CDR+; MS-60B+ support is experimental.\n\n"
                 + (irLevelChanges.Count > 0
                     ? "Cab IR level reduction to avoid clipping: "
                       + string.Join(", ", irLevelChanges) + ". Expect a lower output level.\n\n"

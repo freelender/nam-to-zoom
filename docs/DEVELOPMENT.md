@@ -23,8 +23,9 @@ risk but do not remove it.
 
 ## Requirements (Windows)
 
-- Windows 10/11 x64; Zoom MS-50G+ **firmware 1.40**, or Zoom
-  MS-70CDR+ **firmware 1.20**, for pedal installation.
+- Windows 10/11 x64; Zoom MS-50G+ **firmware 1.40**, Zoom
+  MS-70CDR+ **firmware 1.20**, or experimentally Zoom MS-60B+
+  **firmware 1.20**, for pedal installation.
 - Install the [.NET 10 SDK](https://learn.microsoft.com/en-us/dotnet/core/install/windows)
   (the SDK includes the runtime),
   [Git for Windows](https://git-scm.com/install/windows) (including Git Bash),
@@ -157,8 +158,9 @@ can be large, and must not be committed.
    with only the selected model processed at a time. Every build uses the
    optimized 3-channel kernel and the 150 load declaration.
 6. **Build + Install** builds first, then separately asks for approval of the
-   exact SHA-256 hashes. It accepts only MS-50G+ firmware 1.40 or MS-70CDR+
-   firmware 1.20 and selects the profile from the identity response. Read the
+   exact SHA-256 hashes. It accepts only MS-50G+ firmware 1.40, MS-70CDR+
+   firmware 1.20, or MS-60B+ firmware 1.20 and selects the profile from the
+   identity response. MS-60B+ support awaits N2Z Bank hardware testing. Read the
    safety section below before using it.
 
 The student has **659 float32 weights per model**. Five slots therefore store
@@ -174,7 +176,7 @@ The app's training epochs affect PC conversion, not pedal processing cost.
 
 To install from the desktop app:
 
-1. Connect and power a supported MS-50G+ or MS-70CDR+ with a USB data cable.
+1. Connect and power a supported MS-50G+, MS-70CDR+, or MS-60B+ with a USB data cable.
    Confirm Windows sees its MIDI port. On the pedal, turn autosave **OFF**, select a stock patch,
    and make sure no saved patch contains any custom effect. In particular,
    erase a saved N2Z Bank patch before replacing or uninstalling the bank.
@@ -268,6 +270,13 @@ The app's backend CLI runs from the `tools` directory as
 `build-bank` does not contact the pedal. Both pedal commands require
 `--ack-risk`; installation additionally requires artifact hashes. The desktop
 UI supplies these only after its separate approval dialog.
+The MS-60B+ profile uses family `0x006E`, model `0x0027`, firmware `1.20`,
+and 100 saved patches. Its identity is recorded in upstream
+[zoom-explorer](https://github.com/thammer/zoom-explorer/blob/master/src/miditools.ts);
+firmware 1.20 is listed on [Zoom's support page](https://zoomcorp.com/en/gb/multi-effects/multistomp-pedals/ms-60b-plus/ms-60b-support/).
+It uses the same bank artifacts and guarded install/uninstall paths; group
+`0x04` places N2Z Bank in PREAMP on MS-60B+. Other firmware versions remain
+refused. N2Z Bank has not yet been auditioned on this pedal.
 `build-bank` always produces the 3-channel, 14-layer optimized bank with the
 150 load declaration. The desktop app uses the same backend.
 
