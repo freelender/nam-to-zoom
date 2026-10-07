@@ -97,6 +97,8 @@ Ensure-Checkout $stomp 'https://github.com/thammer/stomphacks.git' $stompRev `
     (Join-Path $root 'patches/stomphacks.patch') $false
 Ensure-Checkout $stomp 'https://github.com/thammer/stomphacks.git' $stompRev `
     (Join-Path $root 'patches/stomphacks-catalogue.patch') $false
+Ensure-Checkout $stomp 'https://github.com/thammer/stomphacks.git' $stompRev `
+    (Join-Path $root 'patches/stomphacks-ten-models.patch') $false
 Ensure-Checkout $nam 'https://github.com/sdatkinson/neural-amp-modeler.git' $namRev `
     (Join-Path $root 'patches/neural-amp-modeler.patch') $false
 Ensure-Checkout $core 'https://github.com/sdatkinson/NeuralAmpModelerCore.git' $coreRev '' $true
@@ -146,6 +148,8 @@ if (-not (Test-Path -LiteralPath $renderFlat)) { throw 'core_render.exe was not 
 
 $project = Join-Path $root 'apps/nam2zoom-desktop/nam2zoom-desktop.csproj'
 Invoke-Checked 'dotnet' @('build', $project, '-c', 'Release')
+Invoke-Checked 'dotnet' @('run', '--project', (Join-Path $root 'tests/conversion-quality/ConversionQualitySmoke.csproj'), '-c', 'Release')
 Invoke-Checked $stompPython @('-m', 'unittest', 'discover', '-s', (Join-Path $root 'tests'), '-p', 'test_*.py')
 Invoke-Checked $trainPython @('-m', 'unittest', 'discover', '-s', (Join-Path $root 'tests'), '-p', 'test_ir.py')
+Invoke-Checked $trainPython @('-m', 'unittest', 'discover', '-s', (Join-Path $root 'tests'), '-p', 'test_adaptation_quality.py')
 Write-Host "Setup complete. Launch $(Join-Path $root 'apps/nam2zoom-desktop/bin/Release/net10.0-windows/nam2zoom-desktop.exe')"

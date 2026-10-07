@@ -1,4 +1,4 @@
-"""Prepare and build one offline Zoom effect from 1-5 compact NAM models."""
+"""Prepare and build one offline Zoom effect from 1-10 NAM models."""
 
 from __future__ import annotations
 
@@ -10,7 +10,7 @@ import struct
 import subprocess
 from pathlib import Path
 
-from .compact import expected_parameters, inspect
+from .compact import expected_parameters, geometry, pair_history_bytes, reserved_dsp_load, inspect
 
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -20,7 +20,7 @@ STOMPHACKS = ROOT / ".tooling" / "stomphacks"
 TOOLCHAIN = ROOT / ".tooling" / "cgt-8.3.1" / "ti-cgt-c6000_8.3.1"
 EFFECT_ID = "04001787"
 FILENAME = "N2ZBANK"
-MAX_MODELS = 5
+MAX_MODELS = 10
 WORDS_PER_MODEL = expected_parameters(3)
 
 
@@ -41,9 +41,10 @@ def normalize_labels(paths: list[Path], labels: list[str] | None) -> list[str]:
     return labels
 
 
-def load_models(paths: list[Path], labels: list[str] | None = None):
+def load_models(paths: list[Path], labels: list[str] | None = None, *, profile="compact"):
+    words = expected_parameters(3, profile)
     if not 1 <= len(paths) <= MAX_MODELS:
-        raise ValueError("a bank needs 1-5 NAM files")
+        raise ValueError("a bank needs 1-10 NAM files")
     names = normalize_labels(paths, labels)
     models = []
     for path, label in zip(paths, names):
@@ -53,22 +54,26 @@ def load_models(paths: list[Path], labels: list[str] | None = None):
             raise ValueError(f"{path}: file exceeds the 16 MiB validation limit")
         raw = path.read_bytes()
         try:
-            model = inspect(json.loads(raw.decode("utf-8")))
+            model = inspect(json.loads(raw.decode("utf-8")), profile)
         except (UnicodeError, json.JSONDecodeError, ValueError, TypeError, KeyError,
                 AttributeError, IndexError, OverflowError, struct.error) as exc:
             raise ValueError(f"{path}: unsupported NAM model: {exc}") from exc
-        if model.channels != 3 or len(model.weights) != WORDS_PER_MODEL:
-            raise ValueError(f"{path}: bank requires the 3-channel compact model")
+        if model.channels != 3 or len(model.weights) != words:
+            raise ValueError(f"{path}: bank requires the 3-channel {profile} model")
         models.append((path, label, model.weight_bytes(), hashlib.sha256(raw).hexdigest()))
     return models
 
 
-def prepare_bank(models, output: Path) -> Path:
+def prepare_bank(models, output: Path, *, profile="compact") -> Path:
+    words = expected_parameters(3, profile)
+    if not 1 <= len(models) <= MAX_MODELS or any(len(row[2]) != words * 4 for row in models):
+        raise ValueError(f"bank weights do not match {profile}")
+    kernel = KERNEL if profile == "compact" else ROOT / "dsp/nam_a2_lite"
     if output.exists():
         raise FileExistsError(f"output already exists: {output}")
     output.mkdir(parents=True)
-    for source in (SOURCE / "bank_effect.c", KERNEL / "compact_pair.c",
-                   KERNEL / "compact_pair.h", KERNEL / "compact_kernel.h"):
+    for source in (SOURCE / "bank_effect.c", kernel / "compact_pair.c",
+                   kernel / "compact_pair.h", kernel / "compact_kernel.h"):
         shutil.copyfile(source, output / source.name)
     icon_name = "nam_a2_amp_readable.png"
     shutil.copyfile(SOURCE / "assets" / icon_name, output / icon_name)
@@ -81,7 +86,7 @@ def prepare_bank(models, output: Path) -> Path:
         + f"#define BANK_MODEL_COUNT {count}u\n"
         + "#define N2Z_OPTIMIZED_KERNEL 1\n"
         + f"#define BANK_SELECTOR_MAX {len(selector_labels) - 1}u\n"
-        + f"#define BANK_WORDS_PER_MODEL {WORDS_PER_MODEL}u\n"
+        + f"#define BANK_WORDS_PER_MODEL {words}u\n"
         + "#endif\n", encoding="ascii"
     )
     (output / "weights.f32").write_bytes(b"".join(entry[2] for entry in models))
@@ -94,13 +99,13 @@ def prepare_bank(models, output: Path) -> Path:
         "icon_frames": [[97, 97], [128, 128]],
         "icon_trim": True,
         "icon_stock_knobs": True,
-        "description": "Compact NAM bank with two-sample processing.",
-        "dspload": 150,
+        "description": f"{profile.capitalize()} NAM bank with two-sample processing.",
+        "dspload": reserved_dsp_load(profile),
         "kernel": "bank_effect.c", "kernel_section": "text",
         "allow_stack": True, "opt_level": 3, "opt_for_space": None,
         "state_bytes": 128, "scaffold": "cleanroom",
         "const_blob": {
-            "symbol": "N2ZBankWeights", "words": count * WORDS_PER_MODEL,
+            "symbol": "N2ZBankWeights", "words": count * words,
             "init": "weights.f32",
         },
         "params": [
@@ -133,15 +138,23 @@ def prepare_bank(models, output: Path) -> Path:
         ],
     }
     lock["optimized_kernel"] = True
-    lock["load_profile"] = "pair-150"
+    lock["load_profile"] = f"pair-{reserved_dsp_load(profile)}"
+    lock["reserved_dsp_load"] = reserved_dsp_load(profile)
     lock["processing_samples"] = 2
-    lock["history_bytes"] = 20076
+    lock["model_profile"] = profile
+    lock["hardware_status"] = "experimental" if profile == "lite" else "tested"
+    lock["history_bytes"] = pair_history_bytes(profile)
+    lock["network_layers"] = len(geometry(profile)[0])
+    lock["weights_per_model"] = words
     (output / "bank.json").write_text(json.dumps(lock, indent=2) + "\n", encoding="utf-8")
     return output / "manifest.json"
 
 
 def build_bank(manifest: Path) -> Path:
+    profile = json.loads((manifest.parent / "bank.json").read_text()).get("model_profile", "compact")
     templates = ROOT / "release/templates"
+    if profile == "lite":
+        templates = ROOT / "release/templates-lite"
     if (templates / "index.json").is_file():
         from .template import fill_template
 

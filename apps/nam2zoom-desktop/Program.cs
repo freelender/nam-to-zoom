@@ -34,6 +34,7 @@ internal sealed class ModelEntry
     public string? IrPath { get; set; }
     public string Status { get; set; } = "Checking";
     public int SampleRate { get; set; }
+    public string ModelProfile { get; set; } = "compact";
 }
 
 internal sealed class CardPanel : Panel
@@ -224,7 +225,17 @@ internal sealed class RoundedButton : Button
 
 internal sealed class MainForm : Form
 {
+    private readonly ToolTip help = new() {
+        InitialDelay = 500, ReshowDelay = 100, AutoPopDelay = 20000, ShowAlways = true
+    };
+    private readonly ToolTip disabledHelp = new();
+    private Control? disabledHelpTarget;
+    private const string EpochsHelp = "An epoch is one pass through the training audio. More epochs take longer and can improve how closely the converted model matches the original. 300 is the longest training option. This setting only applies when retraining is needed.";
+    private const string ModelHelp = "Compact: a smaller 14-layer model that leaves room for other pedal effects.\nLite (alone): the full A2 Lite architecture, retrained at 44.1 kHz. It uses the full pedal DSP budget; use it alone in the patch. Adding other effects can cause slowdown or crackling.";
+    private const string PedalLabelHelp = "The model name shown in the pedal's Model selector. Use 1-5 characters: A-Z, 0-9, hyphen or underscore. Each model in the list needs a unique label.";
+    private const string CabIrHelp = "An optional cabinet impulse response (IR) adds the sound of a speaker cabinet and microphone. Choose a mono WAV for the selected model. Leave it empty if your NAM already includes a cabinet or you use a separate cabinet effect.";
     private readonly List<ModelEntry> models = [];
+    private const int MaxModels = 10;
     private readonly DataGridView grid = new();
     private readonly TextBox log = new();
     private readonly Label status = new();
@@ -244,8 +255,9 @@ internal sealed class MainForm : Form
     private readonly Button installButton = new RoundedButton();
     private readonly Button uninstallButton = new RoundedButton();
     private readonly CheckBox backupCheck = new();
-    private readonly CheckBox bestEffortCheck = new();
     private readonly NumericUpDown epochsInput = new();
+    private readonly ComboBox modelProfileInput = new();
+    private string ModelProfile => modelProfileInput.SelectedIndex == 1 ? "lite" : "compact";
     private readonly Button previewButton = new RoundedButton();
     private readonly Button chooseIrButton = new RoundedButton();
     private readonly Button clearIrButton = new RoundedButton();
@@ -411,6 +423,21 @@ internal sealed class MainForm : Form
         epochsInput.AccessibleDescription =
             "PC training epochs for NAM models that need adaptation, from 1 to 300";
         buildOptions.Controls.Add(epochsInput);
+        buildOptions.Controls.Add(new Label {
+            Text = "Model", AutoSize = true, ForeColor = Muted,
+            Margin = new Padding(0, 11, 8, 0)
+        });
+        modelProfileInput.DropDownStyle = ComboBoxStyle.DropDownList;
+        modelProfileInput.Items.AddRange(["Compact", "Lite (alone)"]);
+        modelProfileInput.SelectedIndex = 0;
+        modelProfileInput.Width = 120;
+        modelProfileInput.BackColor = SurfaceRaised;
+        modelProfileInput.ForeColor = Foreground;
+        modelProfileInput.Margin = new Padding(0, 6, 14, 0);
+        modelProfileInput.AccessibleDescription =
+            "Compact can be used with other effects. Lite uses the full DSP budget and must run alone; patch saving/loading still needs testing.";
+        modelProfileInput.SelectedIndexChanged += async (_, _) => await ChangeModelProfileAsync();
+        buildOptions.Controls.Add(modelProfileInput);
         var buildCommands = new FlowLayoutPanel {
             Dock = DockStyle.Fill, FlowDirection = FlowDirection.RightToLeft,
             WrapContents = false, AutoScroll = true, BackColor = Surface
@@ -421,14 +448,6 @@ internal sealed class MainForm : Form
         ConfigureButton(previewButton, "Open A/B");
         previewButton.Click += (_, _) => OpenPreview();
         buildCommands.Controls.Add(previewButton);
-        bestEffortCheck.Text = "Best effort";
-        bestEffortCheck.AutoSize = true;
-        bestEffortCheck.ForeColor = Muted;
-        bestEffortCheck.Margin = new Padding(8, 11, 12, 0);
-        bestEffortCheck.Cursor = Cursors.Hand;
-        bestEffortCheck.AccessibleDescription =
-            "Allow lower-fidelity NAM conversions after training; device safety checks remain required";
-        buildOptions.Controls.Add(bestEffortCheck);
         backupCheck.Text = "Back up device";
         backupCheck.Checked = true;
         backupCheck.AutoSize = true;
@@ -615,7 +634,94 @@ internal sealed class MainForm : Form
                 deviceBusy ? "Pedal operation in progress" : "Build in progress",
                 MessageBoxButtons.OK, MessageBoxIcon.Warning);
         };
+        ConfigureHelp();
         UpdateDetail();
+    }
+
+    private void SetHelp(Control control, string text)
+    {
+        help.SetToolTip(control, text);
+        control.AccessibleDescription = text;
+    }
+
+    private void ConfigureHelp()
+    {
+        void Visit(Control parent)
+        {
+            // Disabled buttons send mouse events to their parent, so provide their help there.
+            parent.MouseMove += (_, e) => {
+                var child = parent.GetChildAtPoint(e.Location, GetChildAtPointSkip.Invisible);
+                var target = child is Button && !child.Enabled ? child : null;
+                if (target == disabledHelpTarget) return;
+                disabledHelp.Hide(parent);
+                disabledHelpTarget = target;
+                if (target is not null)
+                    disabledHelp.Show(help.GetToolTip(target) ?? "", parent, e.X + 16, e.Y + 20, 20000);
+            };
+            parent.MouseLeave += (_, _) => {
+                disabledHelp.Hide(parent);
+                disabledHelpTarget = null;
+            };
+            foreach (Control control in parent.Controls) {
+                var text = control is WindowButton window ? window.Kind switch {
+                    WindowButtonKind.Minimize => "Minimize the app to the taskbar.",
+                    WindowButtonKind.Maximize => "Switch between a maximized window and its previous size.",
+                    _ => "Close the app. Finish or cancel an active build first."
+                } : control is Button ? control.Text switch {
+                    "+  Add model" => "Add NAM files to the effect. You can include up to ten models and select them on the pedal.",
+                    "Open list" => "Open a saved model list, including its pedal labels and cabinet IR selections.",
+                    "Save list" => "Save the model list, labels and IR selections so you can reopen it later. This saves references to the source files.",
+                    "Move up" => "Move the selected model one slot earlier in the pedal's Model selector.",
+                    "Move down" => "Move the selected model one slot later in the pedal's Model selector.",
+                    "Remove" => "Remove the selected model from this list. Its source NAM file stays on disk.",
+                    "Build effect" => "Convert the models and create a pedal effect on your computer. You can choose where to save it.",
+                    "Build + Install" => "Build the effect, then install it on the connected supported pedal after the device checks and confirmation.",
+                    "Uninstall from pedal" => "Remove the nam2zoom effect from the connected pedal after the device checks and confirmation.",
+                    "Open A/B" => "Open the available original and converted audio previews to compare their sound. Previews become available after adaptation.",
+                    "Choose WAV" => "Choose a mono WAV cabinet impulse response for the selected model. " + CabIrHelp,
+                    "Clear" => "Remove the selected model's cabinet IR selection. The WAV file stays on disk.",
+                    "Clear log" => "Clear the activity messages displayed below.",
+                    "Cancel build" => "Stop the current computer build or retraining job. Pedal operations must finish and cannot be cancelled here.",
+                    _ => ""
+                } : control is Label ? control.Text switch {
+                    "Epochs" => EpochsHelp,
+                    "Model" => ModelHelp,
+                    "Pedal label" => PedalLabelHelp,
+                    "Cab IR (optional)" => CabIrHelp,
+                    "NAM file" => "The source NAM file used for the selected model.",
+                    _ => ""
+                } : "";
+                if (text.Length > 0) SetHelp(control, text);
+                Visit(control);
+            }
+        }
+        Visit(this);
+        SetHelp(epochsInput, EpochsHelp);
+        SetHelp(modelProfileInput, ModelHelp);
+        SetHelp(backupCheck, "Save a full pedal backup before installing or uninstalling. Backups are saved in the Backup folder beside the app. Keep this checked if you want a recovery copy of your device contents.");
+        SetHelp(pedalLabel, PedalLabelHelp);
+        SetHelp(labelCount, "Characters used out of the five-character pedal label limit.");
+        SetHelp(selectedCompatibility, "Compatible: ready to build. Conversion needed: retraining is required for the selected model mode. Unsupported: this model cannot currently be converted.");
+        SetHelp(selectedRate, "The source NAM's sample rate. The pedal effect runs at 44.1 kHz; models that need conversion are adapted to that rate.");
+        SetHelp(selectedSize, "The source NAM file's size on disk. File size does not measure pedal DSP usage.");
+        grid.ShowCellToolTips = true;
+        string[] columnHelp = [
+            "Model slot order on the pedal. Use Move up or Move down to change it.",
+            PedalLabelHelp,
+            "Source NAM file. Select a row to view its details, edit its pedal label or choose a cabinet IR.",
+            help.GetToolTip(selectedCompatibility) ?? ""
+        ];
+        for (var i = 0; i < grid.Columns.Count; i++)
+            grid.Columns[i].HeaderCell.ToolTipText = columnHelp[i];
+    }
+
+    protected override void Dispose(bool disposing)
+    {
+        if (disposing) {
+            help.Dispose();
+            disabledHelp.Dispose();
+        }
+        base.Dispose(disposing);
     }
 
     private static string FindRoot()
@@ -734,8 +840,8 @@ internal sealed class MainForm : Form
         installButton.Enabled = buildButton.Enabled;
         uninstallButton.Enabled = !busy;
         backupCheck.Enabled = !busy;
-        bestEffortCheck.Enabled = !busy;
         epochsInput.Enabled = !busy;
+        modelProfileInput.Enabled = !busy;
         previewButton.Enabled = !busy && previewRoot is not null && Directory.Exists(previewRoot);
         removeButton.Enabled = !busy && SelectedIndex >= 0;
         moveUpButton.Enabled = !busy && SelectedIndex > 0;
@@ -747,7 +853,7 @@ internal sealed class MainForm : Form
         cancelButton.Enabled = busy && !deviceBusy && jobCancellation is not null &&
             !jobCancellation.IsCancellationRequested;
         status.Text = deviceBusy ? "Pedal operation in progress - do not disconnect" :
-            busy ? "Building..." : $"{models.Count}/5 models  |  {lastAction}";
+            busy ? "Building..." : $"{models.Count}/{MaxModels} models  |  {lastAction}";
         if (!busy) {
             determinateProgress = false;
             progress.Style = ProgressBarStyle.Blocks;
@@ -766,9 +872,13 @@ internal sealed class MainForm : Form
     private void RefreshGrid(int select = -1)
     {
         grid.Rows.Clear();
-        for (int i = 0; i < models.Count; i++)
-            grid.Rows.Add((i + 1).ToString("00"), models[i].Label,
-                System.IO.Path.GetFileName(models[i].Path), models[i].Status);
+        for (int i = 0; i < models.Count; i++) {
+            var row = grid.Rows[grid.Rows.Add((i + 1).ToString("00"), models[i].Label,
+                System.IO.Path.GetFileName(models[i].Path), models[i].Status)];
+            foreach (DataGridViewCell cell in row.Cells)
+                cell.ToolTipText = cell.ColumnIndex == 2 ? models[i].Path
+                    : grid.Columns[cell.ColumnIndex].HeaderCell.ToolTipText;
+        }
         grid.ClearSelection();
         if (select >= 0 && select < grid.Rows.Count) grid.Rows[select].Selected = true;
         UpdateDetail();
@@ -800,11 +910,13 @@ internal sealed class MainForm : Form
                 $"File size\r\n{new FileInfo(model.Path).Length / 1024.0:0.0} KB" :
                 "File size\r\nMissing file";
             selectedIr.Text = model.IrPath ?? "No IR selected";
-            selectedIr.AccessibleDescription = selectedIr.Text;
             pedalLabel.Text = model.Label;
         }
         if (index < 0 || index >= models.Count) selectedCompatibility.ForeColor = Foreground;
         labelCount.Text = $"{pedalLabel.Text.Length}/5";
+        SetHelp(selectedFile, selectedFile.Text);
+        SetHelp(selectedPath, selectedPath.Text);
+        SetHelp(selectedIr, CabIrHelp + "\n\n" + selectedIr.Text);
         pedalLabel.BackColor = LabelsValid() ? SurfaceRaised : Color.FromArgb(83, 47, 52);
         updatingLabel = false;
         UpdateActions();
@@ -893,8 +1005,8 @@ internal sealed class MainForm : Form
             .Where(p => models.All(m => !string.Equals(m.Path, p, StringComparison.OrdinalIgnoreCase)))
             .ToArray();
         if (selected.Length == 0) return;
-        if (models.Count + selected.Length > 5) {
-            MessageBox.Show(this, "The current bank supports at most five models."); return;
+        if (models.Count + selected.Length > MaxModels) {
+            MessageBox.Show(this, "The current bank supports at most ten models."); return;
         }
         busy = true;
         UpdateActions();
@@ -904,30 +1016,59 @@ internal sealed class MainForm : Form
                 var entry = new ModelEntry { Path = path, Label = NewLabel(path) };
                 models.Add(entry);
                 RefreshGrid(models.Count - 1);
-                var (exit, output) = await RunPythonAsync(["inspect-hybrid", path]);
-                if (exit == 0) {
-                    try {
-                        var result = JsonDocument.Parse(output).RootElement;
-                        entry.Status = result.GetProperty("status").GetString() switch {
-                            "direct" => "Ready", "adaptable" => "Adapt", _ => "Unsupported"
-                        };
-                        if (result.TryGetProperty("sample_rate", out var rate)
-                            && rate.ValueKind == JsonValueKind.Number)
-                            entry.SampleRate = rate.GetInt32();
-                        if (entry.Status == "Unsupported")
-                            log.AppendText($"{System.IO.Path.GetFileName(path)}: "
-                                + result.GetProperty("reason").GetString() + "\r\n");
-                    } catch (JsonException) { entry.Status = "Unsupported"; }
-                } else {
-                    entry.Status = "Unsupported";
-                    log.AppendText($"{System.IO.Path.GetFileName(path)}: {output.Trim()}\r\n");
-                }
+                await CheckModelAsync(entry);
                 RefreshGrid(models.Count - 1);
             }
         } catch (Exception ex) {
             log.AppendText($"Validation failed: {ex.Message}\r\n");
         } finally {
             busy = false;
+            UpdateActions();
+        }
+    }
+
+    private async Task CheckModelAsync(ModelEntry entry)
+    {
+        var (exit, output) = await RunPythonAsync(["inspect-hybrid", entry.Path, "--profile", ModelProfile]);
+        if (exit == 0) {
+            try {
+                var result = JsonDocument.Parse(output).RootElement;
+                entry.Status = result.GetProperty("status").GetString() switch {
+                    "direct" => "Ready", "adaptable" => "Adapt", _ => "Unsupported"
+                };
+                if (result.TryGetProperty("sample_rate", out var rate)
+                    && rate.ValueKind == JsonValueKind.Number)
+                    entry.SampleRate = rate.GetInt32();
+                if (entry.Status == "Unsupported")
+                    log.AppendText($"{System.IO.Path.GetFileName(entry.Path)}: "
+                + result.GetProperty("reason").GetString() + "\r\n");
+            } catch (JsonException) { entry.Status = "Unsupported"; }
+        } else {
+            entry.Status = "Unsupported";
+            log.AppendText($"{System.IO.Path.GetFileName(entry.Path)}: {output.Trim()}\r\n");
+        }
+        entry.ModelProfile = ModelProfile;
+    }
+
+    private async Task ChangeModelProfileAsync()
+    {
+        if (busy || models.Count == 0) return;
+        busy = true;
+        UpdateActions();
+        try {
+            foreach (var entry in models) {
+                entry.Status = "Checking";
+                RefreshGrid();
+                await CheckModelAsync(entry);
+            }
+            previewRoot = null;
+            log.AppendText($"Selected {ModelProfile}. Existing exports with another architecture need retraining.\r\n");
+        } catch (Exception ex) {
+            foreach (var entry in models) entry.Status = "Unsupported";
+            log.AppendText($"Validation failed: {ex.Message}\r\n");
+        } finally {
+            busy = false;
+            RefreshGrid();
             UpdateActions();
         }
     }
@@ -959,7 +1100,7 @@ internal sealed class MainForm : Form
         };
         if (dialog.ShowDialog(this) != DialogResult.OK) return;
         try {
-            var entries = models.Select(m => new { m.Path, m.Label, m.IrPath }).ToArray();
+            var entries = models.Select(m => new { m.Path, m.Label, m.IrPath, ModelProfile }).ToArray();
             File.WriteAllText(dialog.FileName, JsonSerializer.Serialize(entries,
                 new JsonSerializerOptions { WriteIndented = true }));
             log.AppendText($"Saved {dialog.FileName}\r\n");
@@ -976,8 +1117,8 @@ internal sealed class MainForm : Form
         try {
             var entries = JsonSerializer.Deserialize<List<ModelEntry>>(File.ReadAllText(dialog.FileName))
                 ?? throw new InvalidDataException("Empty list");
-            if (entries.Count > 5 || entries.Any(m => !File.Exists(m.Path)))
-                throw new InvalidDataException("List exceeds five models or contains missing files");
+            if (entries.Count > MaxModels || entries.Any(m => !File.Exists(m.Path)))
+                throw new InvalidDataException("List exceeds ten models or contains missing files");
             if (entries.Any(m => m.IrPath is not null
                 && (!File.Exists(m.IrPath)
                     || !m.IrPath.EndsWith(".wav", StringComparison.OrdinalIgnoreCase))))
@@ -988,7 +1129,11 @@ internal sealed class MainForm : Form
                 !m.Label.All(c => c <= 127 && (char.IsLetterOrDigit(c) || c is '-' or '_')))
                 || entries.Select(m => m.Label.ToUpperInvariant()).Distinct().Count() != entries.Count)
                 throw new InvalidDataException("List contains invalid or duplicate pedal labels");
+            if (entries.Any(m => m.ModelProfile is not ("compact" or "lite"))
+                || entries.Select(m => m.ModelProfile).Distinct().Count() > 1)
+                throw new InvalidDataException("List contains unsupported or mixed model profiles");
             models.Clear();
+            modelProfileInput.SelectedIndex = entries.FirstOrDefault()?.ModelProfile == "lite" ? 1 : 0;
             RefreshGrid();
             await AddProjectEntriesAsync(entries);
         } catch (Exception ex) { MessageBox.Show(this, ex.Message, "Open failed"); }
@@ -1095,24 +1240,25 @@ internal sealed class MainForm : Form
         if (!LabelsValid()) { MessageBox.Show(this, "Use unique 1-5 character pedal labels."); return; }
         if (!(installAfterBuild ? installButton.Enabled : buildButton.Enabled)) return;
         var fullBackup = backupCheck.Checked;
-        var bestEffort = bestEffortCheck.Checked;
         var epochs = (int)epochsInput.Value;
+        var profile = ModelProfile;
         using var dialog = new FolderBrowserDialog { Description = "Choose a folder for the build" };
         if (dialog.ShowDialog(this) != DialogResult.OK) return;
-        var output = System.IO.Path.Combine(dialog.SelectedPath,
-            "n2z-bank-" + DateTime.Now.ToString("yyyyMMdd-HHmmss"));
+        var workspace = BuildWorkspace.Create(dialog.SelectedPath);
+        var output = workspace.Output;
         jobCancellation = new CancellationTokenSource();
         busy = true;
         previewRoot = null;
         UpdateActions();
         log.AppendText($"Building {models.Count} model(s) -> {output}\r\n");
         if (models.Any(m => m.Status == "Adapt" || m.IrPath is not null))
-            log.AppendText($"PC adaptation: {epochs} epochs\r\n");
+            log.AppendText($"PC adaptation: {profile}, {(profile == "lite" ? 23 : 14)} layers, {epochs} epochs, standard spectral loss\r\n");
         try {
             var trainingDi = models.Any(m => m.Status == "Adapt" || m.IrPath is not null)
                 ? EnsureBundledTrainingDi() : null;
             var resolved = new List<string>();
             var previews = new List<(string Label, string Directory)>();
+            var exports = new List<(string Student, string Source)>();
             var lowFidelity = new List<string>();
             var irLevelChanges = new List<string>();
             foreach (var model in models) {
@@ -1127,9 +1273,9 @@ internal sealed class MainForm : Form
                     + "\r\n");
                 var adaptArgs = new List<string> {
                     "adapt", model.Path, "--training-di", trainingDi!, "--cache", cache,
-                    "--epochs", epochs.ToString(System.Globalization.CultureInfo.InvariantCulture)
+                    "--epochs", epochs.ToString(System.Globalization.CultureInfo.InvariantCulture),
+                    "--profile", profile, "--review-quality"
                 };
-                if (bestEffort) adaptArgs.Add("--best-effort");
                 if (model.IrPath is not null) {
                     adaptArgs.Add("--ir");
                     adaptArgs.Add(model.IrPath);
@@ -1146,12 +1292,8 @@ internal sealed class MainForm : Form
                 if (qualityLine is null)
                     throw new InvalidDataException($"Adaptation produced no quality result for {model.Label}");
                 using (var quality = JsonDocument.Parse(qualityLine[15..])) {
-                    if (quality.RootElement.GetProperty("status").GetString() == "best-effort") {
-                        lowFidelity.Add($"{model.Label}: ESR "
-                            + quality.RootElement.GetProperty("esr").GetDouble().ToString("0.0000")
-                            + ", correlation "
-                            + quality.RootElement.GetProperty("correlation").GetDouble().ToString("0.0000"));
-                    }
+                    var review = ConversionQuality.ReviewLine(model.Path, model.Label, quality.RootElement);
+                    if (review is not null) lowFidelity.Add(review);
                     if (quality.RootElement.TryGetProperty("ir_gain_db", out var irGain)
                         && irGain.GetDouble() < -0.1) {
                         irLevelChanges.Add($"{model.Label}: "
@@ -1163,13 +1305,40 @@ internal sealed class MainForm : Form
                 if (previewLine is null || !Directory.Exists(previewLine[12..]))
                     throw new InvalidDataException($"Adaptation produced no A/B preview for {model.Label}");
                 previews.Add((model.Label, previewLine[12..]));
-                var converted = ConvertedNam.Save(marker[12..], model.Path, AppContext.BaseDirectory);
+                exports.Add((marker[12..], model.Path));
+            }
+            jobCancellation.Token.ThrowIfCancellationRequested();
+            previewRoot = workspace.StagePreviews(previews);
+            if (lowFidelity.Count > 0) {
+                OpenPreview();
+                var useConversions = MessageBox.Show(this,
+                    "Conversion finished. These NAM models are outside the quality limits:\n\n"
+                    + string.Join("\n", lowFidelity)
+                    + "\n\nESR measures the difference from the original NAM; lower is closer. "
+                    + "These results may still sound good. The A/B preview folder has been opened "
+                    + "so you can compare the original and converted clips.\n\n"
+                    + "Use these conversions and finish building the effect? "
+                    + "Choose No to stop; previews and cached conversions will be kept.",
+                    "Review NAM conversion quality", MessageBoxButtons.YesNo, MessageBoxIcon.Warning,
+                    MessageBoxDefaultButton.Button2);
+                jobCancellation.Token.ThrowIfCancellationRequested();
+                if (useConversions != DialogResult.Yes) {
+                    lastAction = "Build stopped after quality review - A/B available";
+                    log.AppendText("Conversions declined. Previews and cache retained; no effect built or installed.\r\n");
+                    return;
+                }
+                log.AppendText("Conversions accepted after quality review:\r\n"
+                    + string.Join("\r\n", lowFidelity) + "\r\n");
+            }
+            foreach (var (student, source) in exports) {
+                var converted = ConvertedNam.Save(student, source, AppContext.BaseDirectory, profile);
                 log.AppendText($"Converted NAM saved: {converted}\r\n");
             }
             var args = new List<string> { "build-bank" };
             args.AddRange(resolved);
             foreach (var model in models) { args.Add("--label"); args.Add(model.Label); }
             args.Add("--output"); args.Add(output);
+            args.Add("--profile"); args.Add(profile);
             var (exit, _) = await RunPythonAsync(args, stream: true,
                 cancellationToken: jobCancellation.Token);
             if (exit != 0) throw new InvalidOperationException("Effect build failed; see the log.");
@@ -1178,21 +1347,11 @@ internal sealed class MainForm : Form
             var icon = System.IO.Path.Combine(output, "build", "N2ZBANK.ZIC");
             if (!File.Exists(effect) || !File.Exists(icon))
                 throw new FileNotFoundException("Build did not produce the effect and icon pair.");
-            if (previews.Count > 0) {
-                previewRoot = System.IO.Path.Combine(output, "preview");
-                foreach (var (label, source) in previews) {
-                    var destination = System.IO.Path.Combine(previewRoot, label);
-                    Directory.CreateDirectory(destination);
-                    foreach (var name in new[] { "original.wav", "converted.wav" })
-                        File.Copy(System.IO.Path.Combine(source, name),
-                            System.IO.Path.Combine(destination, name));
-                }
-            }
-            lastAction = lowFidelity.Count > 0 ? "Best-effort build complete" : "Offline build complete";
+            previewRoot = workspace.CompletePreviews();
+            lastAction = "Offline build complete";
             if (!installAfterBuild) {
-                var warning = lowFidelity.Count == 0 ? "" :
-                    "\n\nLower-fidelity conversion:\n" + string.Join("\n", lowFidelity)
-                    + "\nListen using Open A/B before installing.";
+                var warning = profile == "lite"
+                    ? "\n\nLite reserves the full DSP budget. Use it alone; other effects can cause slowdown and crackling. Patch saving/loading still needs testing." : "";
                 if (irLevelChanges.Count > 0)
                     warning += "\n\nCab IR output was attenuated to avoid clipping:\n"
                         + string.Join("\n", irLevelChanges)
@@ -1200,20 +1359,6 @@ internal sealed class MainForm : Form
                 MessageBox.Show(this, $"Offline effect built in:\n{System.IO.Path.Combine(output, "build")}" + warning,
                     "Build complete");
                 return;
-            }
-            if (lowFidelity.Count > 0) {
-                OpenPreview();
-                var continueInstall = MessageBox.Show(this,
-                    "This bank contains a lower-fidelity conversion:\n"
-                    + string.Join("\n", lowFidelity)
-                    + "\n\nThe A/B preview folder has been opened. Listen to the original and "
-                    + "converted clips before deciding. Continue to the separate pedal install approval?",
-                    "Review conversion", MessageBoxButtons.YesNo, MessageBoxIcon.Warning,
-                    MessageBoxDefaultButton.Button2);
-                if (continueInstall != DialogResult.Yes) {
-                    log.AppendText("Install declined; best-effort offline build remains available.\r\n");
-                    return;
-                }
             }
             var effectHash = Convert.ToHexString(SHA256.HashData(File.ReadAllBytes(effect)));
             var iconHash = Convert.ToHexString(SHA256.HashData(File.ReadAllBytes(icon)));
@@ -1226,7 +1371,9 @@ internal sealed class MainForm : Form
                 + "An existing N2Z Bank will be uninstalled first. "
                 + "It will refuse if the current or any saved patch contains a non-stock effect.\n\n"
                 + "Supported targets are MS-50G+ firmware 1.40, MS-70CDR+ firmware 1.20, and MS-60B+ firmware 1.20. "
-                + "The bank has been hardware-tested on MS-50G+ and MS-70CDR+; MS-60B+ support is experimental.\n\n"
+                + (profile == "lite"
+                    ? "Lite has been reported working alone on three captures. It reserves the full DSP budget; adding other effects caused slowdown and crackling. Patch saving/loading still needs testing.\n\n"
+                    : "The Compact bank has been hardware-tested on MS-50G+ and MS-70CDR+; MS-60B+ support is experimental.\n\n")
                 + (irLevelChanges.Count > 0
                     ? "Cab IR level reduction to avoid clipping: "
                       + string.Join(", ", irLevelChanges) + ". Expect a lower output level.\n\n"

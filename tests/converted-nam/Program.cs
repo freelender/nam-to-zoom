@@ -23,6 +23,17 @@ try {
     if (withCab == exported || File.ReadAllText(exported) != "converted weights"
         || File.ReadAllText(original) != "original weights")
         throw new Exception("Importing an exported NAM must never overwrite the source");
+    var compact = ConvertedNam.Save(student, original, temporary, "compact");
+    var lite = ConvertedNam.Save(student, original, temporary, "lite");
+    if (compact == lite || Path.GetDirectoryName(compact) != Path.Combine(temporary, "Converted_NAM", "Compact")
+        || Path.GetDirectoryName(lite) != Path.Combine(temporary, "Converted_NAM", "Lite"))
+        throw new Exception("Architectures must have separate export directories");
+    if (ConvertedNam.Save(student, original, temporary, "lite") != lite)
+        throw new Exception("Identical Lite export must be reused");
+    try {
+        ConvertedNam.Save(student, original, temporary, "../invalid");
+        throw new Exception("Invalid profile accepted");
+    } catch (ArgumentException) { }
     Console.WriteLine("Converted NAM export checks passed");
 } finally {
     Directory.Delete(temporary, recursive: true);

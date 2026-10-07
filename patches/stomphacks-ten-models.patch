@@ -1,0 +1,14 @@
+diff --git a/tools/zd2_make_effect.py b/tools/zd2_make_effect.py
+--- a/tools/zd2_make_effect.py
++++ b/tools/zd2_make_effect.py
+@@ -674,8 +674,8 @@
+     # `extern const uint32_t <symbol>[];`. "init" (path relative to the
+     # manifest) preloads the leading words little-endian (padded to a
+     # word boundary); the remainder is zero-filled.
+-    CONST_BLOB_MAX_WORDS = 16384          # 64 KB, below the stock 72-KB
+-    cb_in = m.get("const_blob")           # reverb blobs, far above need
++    CONST_BLOB_MAX_WORDS = 18710          # ten 1,871-word A2 Lite models
++    cb_in = m.get("const_blob")           # model weights; one model runs at a time
+     if cb_in is not None:
+         cb_problems = []
+         if m.get("scaffold") != "cleanroom":

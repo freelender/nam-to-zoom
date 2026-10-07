@@ -12,26 +12,31 @@ sys.path.insert(0, str(ROOT / "tools"))
 
 from elf32 import parse_elf32
 from zd2 import parse_zd2_bytes
-from nam2zoom.bank import WORDS_PER_MODEL, build_bank, prepare_bank
-from nam2zoom.template import SOURCES, digest
+from nam2zoom.bank import build_bank, prepare_bank, MAX_MODELS
+from nam2zoom.compact import expected_parameters, reserved_dsp_load
+from nam2zoom.template import sources, digest
 
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--output", type=Path, required=True)
     parser.add_argument("--work", type=Path, required=True)
+    parser.add_argument("--profile", choices=("compact", "lite"), default="compact")
     args = parser.parse_args()
-    if (ROOT / "release/templates/index.json").exists():
+    words = expected_parameters(3, args.profile)
+    if (ROOT / ("release/templates-lite/index.json" if args.profile == "lite" else "release/templates/index.json")).exists():
         parser.error("remove the generated release/templates cache before compiling new templates")
     args.output.mkdir(parents=True, exist_ok=False)
     args.work.mkdir(parents=True, exist_ok=False)
     index = {"format": "nam2zoom.templates.v1", "banks": {},
-             "dsp_source_sha256": {name: digest((ROOT / name).read_bytes()) for name in SOURCES}}
-    for count in range(1, 6):
-        models = [(ROOT / "release/create_templates.py", f"SLOT{i+1}",
-                   bytes(WORDS_PER_MODEL * 4), "zero-weight-release-template")
+             "model_profile": args.profile,
+             "reserved_dsp_load": reserved_dsp_load(args.profile),
+             "dsp_source_sha256": {name: digest((ROOT / name).read_bytes()) for name in sources(args.profile)}}
+    for count in range(1, MAX_MODELS + 1):
+        models = [(ROOT / "release/create_templates.py", f"SLT{i+1}",
+                   bytes(words * 4), "zero-weight-release-template")
                   for i in range(count)]
-        manifest = prepare_bank(models, args.work / str(count))
+        manifest = prepare_bank(models, args.work / str(count), profile=args.profile)
         effect = build_bank(manifest)
         zd2 = parse_zd2_bytes(effect.read_bytes())
         stripped = parse_elf32(zd2.data_chunk.data)

@@ -11,11 +11,16 @@
 
 #define HISTORY_FLOATS PAIR_HISTORY_FLOATS
 typedef char even_callback[(SH_FRAMES % 2u == 0u) ? 1 : -1];
-typedef char even_warmup[(COMPACT_RECEPTIVE_FIELD % 2u == 0u) ? 1 : -1];
+#define BANK_WARMUP_FRAMES ((COMPACT_RECEPTIVE_FIELD + 1u) & ~1u)
 #define HISTORY_BYTES (HISTORY_FLOATS * sizeof(float))
 #define CLEAR_PER_BLOCK 512u
+#ifdef N2Z_LITE_KERNEL
+#define INITIALIZED 0x50324C31u
+#define RECOVERING 0x52454C31u
+#else
 #define INITIALIZED 0x50324231u
 #define RECOVERING 0x52454331u
+#endif
 #define CTX_GET_PARAM 40u
 #define UI_PARAM_MODEL 2 /* host entries 0 and 1 precede the user parameters */
 
@@ -140,7 +145,7 @@ static void effect_process(void **instance, void **ctx)
     if (state->initialized != INITIALIZED || state->base_seen != base ||
         state->span_seen != span || state->active_model != selected ||
         state->clear_count > HISTORY_FLOATS ||
-        state->warm_count > COMPACT_RECEPTIVE_FIELD) {
+        state->warm_count > BANK_WARMUP_FRAMES) {
         for (i = 0; i < COMPACT_LAYERS; ++i) state->model.layer_pos[i] = 0;
         state->model.head_pos = 0;
         state->low = 0.0f;
@@ -160,8 +165,8 @@ static void effect_process(void **instance, void **ctx)
         mute_wet(bus, wet_gain);
         return;
     }
-    if (state->warm_count < COMPACT_RECEPTIVE_FIELD) {
-        unsigned int remaining = COMPACT_RECEPTIVE_FIELD - state->warm_count;
+    if (state->warm_count < BANK_WARMUP_FRAMES) {
+        unsigned int remaining = BANK_WARMUP_FRAMES - state->warm_count;
         unsigned int count = remaining < SH_FRAMES ? remaining : SH_FRAMES;
         for (i = 0; i < count; i += 2u) {
             float ignored0, ignored1;

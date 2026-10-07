@@ -28,8 +28,13 @@ def derive_callback(source):
     replace("#define HISTORY_FLOATS COMPACT_MIRROR_HISTORY_FLOATS",
             "#define HISTORY_FLOATS PAIR_HISTORY_FLOATS\n"
             "typedef char even_callback[(SH_FRAMES % 2u == 0u) ? 1 : -1];\n"
-            "typedef char even_warmup[(COMPACT_RECEPTIVE_FIELD % 2u == 0u) ? 1 : -1];")
-    replace("#define INITIALIZED 0x41324231u", "#define INITIALIZED 0x50324231u")
+            "#define BANK_WARMUP_FRAMES ((COMPACT_RECEPTIVE_FIELD + 1u) & ~1u)")
+    replace("#define INITIALIZED 0x41324231u\n#define RECOVERING 0x52454331u",
+            "#ifdef N2Z_LITE_KERNEL\n#define INITIALIZED 0x50324C31u\n#define RECOVERING 0x52454C31u\n"
+            "#else\n#define INITIALIZED 0x50324231u\n#define RECOVERING 0x52454331u\n#endif")
+    source = source.replace("state->warm_count > COMPACT_RECEPTIVE_FIELD", "state->warm_count > BANK_WARMUP_FRAMES")
+    source = source.replace("state->warm_count < COMPACT_RECEPTIVE_FIELD", "state->warm_count < BANK_WARMUP_FRAMES")
+    source = source.replace("remaining = COMPACT_RECEPTIVE_FIELD -", "remaining = BANK_WARMUP_FRAMES -")
     replace("    CompactState model;", "    CompactPairState model;")
     replace("        for (i = 0; i < count; ++i)\n"
             "            (void)compact_process(weights, history, &state->model, 0.0f);",

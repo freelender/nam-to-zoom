@@ -12,7 +12,7 @@ _More devices to come._
 
 ---
 
-nam2zoom converts one to five Neural Amp Modeler (`.nam`) files into a single
+nam2zoom converts one to ten Neural Amp Modeler (`.nam`) files into a single
 Zoom MS Plus custom effect named **N2Z Bank**. The pedal effect exposes
 **Model, Bass, Mid, Treble, Vol, Input,** and **Mix** controls; only the
 selected model runs at a time.
@@ -42,7 +42,7 @@ Use the release ZIP, not GitHub's source-code ZIP. Extract the whole folder to
 a writable location and run `nam2zoom-desktop.exe`; do not copy the EXE away
 from its bundled files.
 
-Drop in one to five NAM files, choose their order, set unique five-character
+Drop in one to ten NAM files, choose their order, set unique five-character
 pedal labels, optionally add mono cab IR WAVs, then build and preview. Direct
 compatible NAMs package immediately. Other supported NAMs are adapted on the
 PC into the fixed pedal network; the app asks before downloading training

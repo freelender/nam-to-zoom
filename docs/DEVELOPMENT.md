@@ -4,9 +4,9 @@ This guide is for contributors and release maintainers. Musicians using the
 portable app should follow [User Guide](USER_GUIDE.md); they do not need the
 developer prerequisites or `setup.ps1`.
 
-Windows desktop source project for converting up to five Neural Amp Modeler
+Windows desktop source project for converting up to ten Neural Amp Modeler
 (`.nam`) files into **one** Zoom MS Plus effect, `N2ZBANK`.
-The five model slots are selected with the effect's **Model** control. The
+The ten model slots are selected with the effect's **Model** control. The
 other controls are **Bass, Mid, Treble, Vol, Input, Mix**. Pedal labels are unique
 ASCII strings of at most five characters.
 
@@ -116,7 +116,7 @@ can be large, and must not be committed.
 
 ## Normal workflow
 
-1. Drop in one to five `.nam` files. Reorder them and edit each pedal label.
+1. Drop in one to ten `.nam` files. Reorder them and edit each pedal label.
    The app classifies each as direct, adaptable, or unsupported. A direct NAM
    already has the exact 44.1 kHz, 14-layer, three-channel compact shape.
 2. Optionally choose a **Cab IR** WAV for any selected model. The IR belongs
@@ -136,6 +136,10 @@ can be large, and must not be committed.
    runs only the resulting compact student, not a separate convolution effect.
    Adaptation trains a compact student and
    validates its last nine seconds (ESR <= 0.05 and correlation >= 0.95).
+   The bundled DI repeats its intro at the tail, so this score is not an
+   independent fidelity measurement. See [Fidelity benchmark](FIDELITY_BENCHMARK.md)
+   for comparisons on independent audio and the experimental guarded split.
+   Configuration hashes now participate in cache keys.
    Changing epochs or IR content produces a separate cache entry. Training can take a long
    time, particularly without GPU acceleration.
    The A/B preview's `original.wav` is the NAM-plus-IR target when an IR is
@@ -148,10 +152,13 @@ can be large, and must not be committed.
    in the log and build result. This preserves the IR's frequency response
    but makes that model quieter; the effect's Vol control has limited makeup
    range, so audition its level before installation.
-4. **Best effort** is optional. It permits a lower-fidelity adaptation when
-   the usual quality gate fails, but does not relax file, structural, or
-   installation safety checks. Review the generated A/B WAVs before using
-   such a build. The A/B preview is a PC rendering, not a pedal recording.
+4. After all conversions, a quality-review dialog lists each NAM outside the
+   ESR/correlation limits and opens the A/B preview folder. Accept to export
+   the conversions and finish building; decline to keep only previews and
+   cached conversions. The desktop passes `--review-quality` to collect
+   valid results; CLI adaptation without it still enforces the quality gate.
+   File, structural, audio and installation checks remain required. The A/B
+   preview is a PC rendering, not a pedal recording.
 5. **Build effect** creates `N2ZBANK.ZD2` and `N2ZBANK.ZIC` in a new output
    folder; it does not write to a pedal. The app includes the supplied
    monochrome artwork in both artifacts. All models become one bank effect,
@@ -163,9 +170,9 @@ can be large, and must not be committed.
    identity response. MS-60B+ support awaits N2Z Bank hardware testing. Read the
    safety section below before using it.
 
-The student has **659 float32 weights per model**. Five slots therefore store
-3,295 weights but do not run five networks simultaneously. The effect shares
-one approximately 39.8 KB history buffer across selected models; switching
+The Compact student has **659 float32 weights per model**. Ten slots therefore store
+6,590 weights, with only the selected network running. The effect shares
+one 20,076-byte history buffer across selected models; switching
 briefly mutes while that history clears and warms. The seven controls are
 Model, Bass/Mid/Treble (neutral at 50), Vol (unity at 50), Input (unity at 50),
 and Mix (dry/wet, default 100). Mix 0 passes the unprocessed dry signal;
@@ -181,7 +188,7 @@ To install from the desktop app:
    and make sure no saved patch contains any custom effect. In particular,
    erase a saved N2Z Bank patch before replacing or uninstalling the bank.
    Do not run another pedal editor or MIDI application at the same time.
-2. In the app, add/reorder up to five NAM files, set their five-character
+2. In the app, add/reorder up to ten NAM files, set their five-character
    pedal labels and training options, then use **Build effect** first. Inspect
    the generated A/B previews and build log. This step is offline.
 3. Leave **Full backup** checked unless you have a deliberate reason not to.
@@ -246,8 +253,8 @@ solely to force more effects into a patch.
   training environment. CPU training still works but takes much longer.
 - A NAM is unsupported or misses the quality gate: not every Tone3000 model
   is structurally compatible or accurately compressible to this fixed student.
-  **Best effort** affects fidelity only; it cannot make unsupported models or
-  unsafe pedal installs valid.
+  The quality-review dialog can accept a supported conversion outside the
+  fidelity limits; it cannot make unsupported models or unsafe pedal installs valid.
 
 ## Project layout
 
@@ -300,7 +307,7 @@ Python 3.12/3.13 runtimes are discovered under `.tooling/python`. The script
 also checks the usual Python 3.13 install directory. Use `-Python312` and
 `-Python313` to override discovery. A runtime must be a full x64 CPython distribution containing
 `python.exe`, its matching `python312.dll` or `python313.dll`, `DLLs`, `Lib`, and `LICENSE.txt`. Setup's Python
-3.12 runtime is suitable for this purpose. The script compiles zero-weight templates for one through five
+3.12 runtime is suitable for this purpose. The script compiles zero-weight templates for one through ten
 models using the maintainer's TI toolchain. It bundles the static-CRT native
 renderer, self-contained .NET GUI, portable Python runtimes, minimal MIDI
 backend, patched NAM trainer wheel, training constraints, and notices.
@@ -351,7 +358,7 @@ of the scalar reference's 39,792 bytes. The instance initialization tag is
 different so the two history layouts cannot be reused interchangeably.
 
 Kernel tests compare scalar and pair output, causal delays, history wrapping
-and memory guards. Full-callback replay uses the production wrapper, all five
+and memory guards. Full-callback replay uses the production wrapper, all ten
 models, controls, Mix, initialization and invalid inputs under a 32-bit host
 ABI. The previous scalar callback lives only in `tests/fixtures`.
 Generated portable templates use the same production sources and reject
@@ -379,3 +386,59 @@ Project code is available under the [MIT License](../LICENSE), copyright 2026
 Aleksandar Vukasinovic. The downloaded Stomphacks, NAM, NAM Core, and TI tools
 have their own terms; `.tooling` and compiler binaries are not part of the Git
 repository.
+
+## Compact and Lite builds
+
+The desktop Model selector and CLI `--profile compact|lite` select one architecture
+for the entire bank. Compact remains the default and retains its existing cache
+keys. Lite uses the native A2 Lite layer/kernel/head geometry, retrained at
+44.1 kHz with the standard loss/optimizer. Packed teachers select slim 0 for Lite
+and slim 1 for Compact. Lite conversions have distinct cache keys and profile
+metadata; imports and build validation reject mismatched shapes.
+
+`training/a2-lite-44100/model.json` defines the 23-layer, 3-channel student.
+`dsp/nam_a2_lite` implements causal two-sample inference, with 76,728 bytes of
+history and 1,871 weights per model. The shared bank wrapper rounds Lite's
+6,347-sample warmup to 6,348 samples and uses distinct initialization/recovery
+markers. RAM needs and DSP timing must be tested on hardware; Compact reserves 150 raw; Lite now reserves the full 270 raw after combined-effect
+overload was reported. These are conservative scheduling values, not measured CPU load.
+
+`release/build-portable.ps1` builds both template sets by default in one command.
+Existing caches can be supplied with `-Templates` and `-LiteTemplates`.
+The portable payload contains `release/templates` and `release/templates-lite`;
+both sets are source-hash checked and only model data is patched at runtime.
+
+Local numerical parity is tested against NAM Core with `tests/test_nam_core_parity.py`;
+set `NAM2ZOOM_PARITY_MODEL` to a real Compact or Lite trained export.
+The Lite test build does not establish real-time pedal performance or saved-patch
+compatibility. Compact templates must retain their pedal-tested instruction image.
+
+### Lite overload follow-up (2026-10-07)
+
+The initial generic Lite kernel caused slowdown and noise in a library preview
+with an empty patch behind it. This is consistent with missed audio deadlines;
+no measured pedal cycle count is available. The generic tap loop had a C674x
+initiation interval of four cycles. Its replacement specializes 6- and 15-tap
+convolutions, unrolls the products and splits each output into independent sums.
+The six-tap output-channel loop schedules at 34 cycles per channel; these
+different loop intervals are not directly comparable as speedup figures.
+
+Model geometry, weights and training/cache settings are unchanged. Existing
+Lite exports can be repackaged without retraining. Numerical parity, callback
+guards/recovery and all 72 offline tests pass. The revised kernel still needs
+hardware timing and audio testing. Compact's pedal-tested code is unchanged.
+The next test must use one Lite effect in an actual empty unsaved patch, with
+all other effects disabled, to distinguish library-preview behavior from overload.
+
+### Lite standalone reservation
+
+The user reported the optimized Lite kernel running JCM800, Twin Reverb and Mark
+IIC+ alone, but slowdown/crackling with even one additional effect. Lite's manifest
+and bank lock now reserve 270 raw (the full declared patch budget), while Compact
+retains 150. The UI calls it Lite (alone). This changes effect admission metadata,
+not inference performance, model weights or training/cache settings. Firmware
+admission, saved-patch and reboot behavior still need hardware verification.
+Template filling verifies the actual INFO reservation before patching weights;
+old Lite templates with 150 are rejected. Existing generated Lite templates can
+be restamped by the maintainer with CRC/hash updates and byte-identical ELF data,
+or regenerated normally using release/create_templates.py --profile lite.

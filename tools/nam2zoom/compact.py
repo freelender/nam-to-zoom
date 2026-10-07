@@ -10,24 +10,52 @@ DILATIONS = (1, 3, 7, 17, 41, 101, 239) * 2
 HEAD_KERNEL = 8
 SAMPLE_RATE = 44100
 
+# Lite matches the native A2 Lite geometry; its weights are retrained at 44.1 kHz.
+PROFILES = {
+    "compact": (KERNEL_SIZES, DILATIONS, HEAD_KERNEL),
+    "lite": ((6,) * 14 + (15, 15) + (6,) * 7,
+             (1, 3, 7, 17, 41, 101, 239) * 2 + (1, 13)
+             + (1, 3, 7, 17, 41, 101, 239), 16),
+}
+
+
+def geometry(profile):
+    if profile not in PROFILES:
+        raise ValueError(f"unknown model profile: {profile}")
+    return PROFILES[profile]
+
+
+def pair_history_bytes(profile):
+    kernels, dilations, head = geometry(profile)
+    return 3 * (sum((k - 1) * d + 2 for k, d in zip(kernels, dilations)) + head + 1) * 4
+
+
+def reserved_dsp_load(profile):
+    """Conservative admission budget; not a measurement of execution time."""
+    geometry(profile)
+    return 270 if profile == "lite" else 150
+
 
 @dataclass(frozen=True)
 class CompactModel:
     channels: int
     weights: tuple[float, ...]
+    profile: str = "compact"
 
     @property
     def receptive_field(self):
-        return 1 + sum((k - 1) * d for k, d in zip(KERNEL_SIZES, DILATIONS)) + HEAD_KERNEL - 1
+        kernels, dilations, head = geometry(self.profile)
+        return 1 + sum((k - 1) * d for k, d in zip(kernels, dilations)) + head - 1
 
     @property
     def mirrored_history_bytes(self):
-        positions = sum((k - 1) * d + 1 for k, d in zip(KERNEL_SIZES, DILATIONS)) + HEAD_KERNEL
+        kernels, dilations, head = geometry(self.profile)
+        positions = sum((k - 1) * d + 1 for k, d in zip(kernels, dilations)) + head
         return 2 * positions * self.channels * 4
 
     @property
     def convolution_terms_per_sample(self):
-        return sum(KERNEL_SIZES) * self.channels * self.channels
+        return sum(geometry(self.profile)[0]) * self.channels * self.channels
 
     def weight_bytes(self):
         payload = struct.pack(f"<{len(self.weights)}f", *self.weights)
@@ -36,12 +64,13 @@ class CompactModel:
         return payload
 
 
-def expected_parameters(channels):
+def expected_parameters(channels, profile="compact"):
     if channels not in (2, 3):
         raise ValueError("compact model supports only 2 or 3 channels")
+    kernels, _, head = geometry(profile)
     return (channels + sum(k * channels * channels + 3 * channels
-                           + channels * channels for k in KERNEL_SIZES)
-            + HEAD_KERNEL * channels + 2)
+                           + channels * channels for k in kernels)
+            + head * channels + 2)
 
 
 def _inactive(value):
@@ -50,7 +79,7 @@ def _inactive(value):
     )
 
 
-def inspect(data):
+def inspect(data, profile=None):
     if not isinstance(data, dict) or data.get("architecture") != "SlimmableContainer":
         raise ValueError("expected a SlimmableContainer")
     if data.get("sample_rate") != SAMPLE_RATE or data.get("weights") != []:
@@ -79,24 +108,30 @@ def inspect(data):
         raise ValueError("unsupported channel count or bottleneck")
     if layer.get("input_size") != 1 or layer.get("condition_size") != 1:
         raise ValueError("unsupported layer input")
-    if layer.get("kernel_sizes") != list(KERNEL_SIZES) or layer.get("dilations") != list(DILATIONS):
+    matches = [name for name, (ks, ds, _) in PROFILES.items()
+               if layer.get("kernel_sizes") == list(ks) and layer.get("dilations") == list(ds)]
+    if not matches or (profile is not None and profile != matches[0]):
         raise ValueError("unsupported compact layer geometry")
+    profile = matches[0]
+    kernels, _, head_kernel = geometry(profile)
+    if profile == "lite" and channels != 3:
+        raise ValueError("Lite requires 3 channels")
     activations = layer.get("activation")
-    if (not isinstance(activations, list) or len(activations) != len(KERNEL_SIZES)
+    if (not isinstance(activations, list) or len(activations) != len(kernels)
             or any(not isinstance(a, dict) or a.get("type") != "LeakyReLU"
                    or not isinstance(a.get("negative_slope"), (int, float))
                    or not math.isclose(a["negative_slope"], 0.01, rel_tol=0, abs_tol=1e-6)
                    for a in activations)):
         raise ValueError("unsupported activations")
-    if layer.get("gating_mode") not in (None, ["none"] * len(KERNEL_SIZES)):
+    if layer.get("gating_mode") not in (None, ["none"] * len(kernels)):
         raise ValueError("unsupported gating")
     if layer.get("gated") is True or layer.get("secondary_activation") not in (
-            None, [None] * len(KERNEL_SIZES)):
+            None, [None] * len(kernels)):
         raise ValueError("unsupported secondary activation")
     if layer.get("layer1x1") != {"active": True, "groups": 1}:
         raise ValueError("unsupported layer1x1")
     head = layer.get("head")
-    if not isinstance(head, dict) or head.get("out_channels") != 1 or head.get("kernel_size") != HEAD_KERNEL or head.get("bias") is not True:
+    if not isinstance(head, dict) or head.get("out_channels") != 1 or head.get("kernel_size") != head_kernel or head.get("bias") is not True:
         raise ValueError("unsupported head")
     if head.get("head_dilation", 1) != 1 or layer.get("groups_input", 1) != 1 or layer.get("groups_input_mixin", 1) != 1:
         raise ValueError("unsupported groups or head dilation")
@@ -108,10 +143,10 @@ def inspect(data):
     if layer.get("slimmable") is not None:
         raise ValueError("unsupported slimmable layer")
     weights = model.get("weights")
-    if not isinstance(weights, list) or len(weights) != expected_parameters(channels):
+    if not isinstance(weights, list) or len(weights) != expected_parameters(channels, profile):
         raise ValueError("incorrect compact weight count")
     if any(type(w) not in (int, float) or not math.isfinite(w) for w in weights):
         raise ValueError("weights must be finite")
-    result = CompactModel(channels, tuple(weights))
+    result = CompactModel(channels, tuple(weights), profile)
     result.weight_bytes()
     return result

@@ -11,7 +11,7 @@ import subprocess
 import sys
 import tempfile
 
-from .compact import inspect as inspect_compact
+from .compact import geometry, inspect as inspect_compact
 from .hybrid import classify
 from .ir import bake, fit_teacher_level, load_ir
 
@@ -20,11 +20,12 @@ ROOT = Path(__file__).resolve().parents[2]
 RENDERER = ROOT / "reference/nam_a2/build-core-ninja/core_render.exe"
 MODEL_TEMPLATE = ROOT / "training/a2-mid-44100/model.json"
 LEARNING_TEMPLATE = ROOT / "training/a2-compact-44100/learning.json"
-PIPELINE_VERSION = "teacher-student-full-v1"
-IR_PIPELINE_VERSION = "teacher-student-ir-v2"
+PIPELINE_VERSION = "teacher-student-full-v2"
+IR_PIPELINE_VERSION = "teacher-student-ir-v3"
 RATE = 44100
 VALIDATION_SECONDS = 9
 FLOAT_OVER_PEAK_LIMIT = 1.05
+VALIDATION_GUARD_SECONDS = 0.25
 
 
 def digest(path: Path) -> str:
@@ -35,11 +36,20 @@ def digest(path: Path) -> str:
     return sha.hexdigest()
 
 
-def cache_key(source: Path, di: Path, epochs: int, ir: Path | None = None) -> str:
+def model_template(profile="compact") -> Path:
+    geometry(profile)
+    return MODEL_TEMPLATE if profile == "compact" else ROOT / "training/a2-lite-44100/model.json"
+
+
+def cache_key(source: Path, di: Path, epochs: int, ir: Path | None = None,
+              *, profile: str = "compact") -> str:
     version = IR_PIPELINE_VERSION if ir else PIPELINE_VERSION
     material = (version + "\n" + digest(source) + "\n" + digest(di)
                 + f"\nepochs={epochs}\n"
-                + (f"ir={digest(ir)}\n" if ir else "")).encode("ascii")
+                + f"model_config={digest(model_template(profile))}\n"
+                + f"learning_config={digest(LEARNING_TEMPLATE)}\n"
+                + (f"ir={digest(ir)}\n" if ir else "")
+                + (f"model_profile={profile}\n" if profile != "compact" else "")).encode("ascii")
     return hashlib.sha256(material).hexdigest()
 
 
@@ -54,7 +64,7 @@ def meets_quality(record: dict, max_esr: float) -> bool:
 
 
 def cached_model(cache: Path, key: str, max_esr: float,
-                 best_effort: bool = False) -> Path | None:
+                 review_quality: bool = False, profile: str = "compact") -> Path | None:
     index = cache / f"{key}.json"
     if not index.is_file():
         return None
@@ -66,18 +76,18 @@ def cached_model(cache: Path, key: str, max_esr: float,
         raise ValueError("adaptation cache model hash mismatch")
     if not valid_scores(record):
         raise ValueError("adaptation cache has invalid quality scores")
-    if not best_effort:
+    if not review_quality:
         if record["esr"] > max_esr:
             raise ValueError(f"cached adaptation ESR {record['esr']:.4f} exceeds {max_esr:.4f}")
         if record["correlation"] < 0.95:
             raise ValueError("cached adaptation correlation is below 0.95")
-    inspect_compact(json.loads(candidate.read_text(encoding="utf-8")))
+    inspect_compact(json.loads(candidate.read_text(encoding="utf-8")), profile)
     return candidate
 
 
 def completed_candidate(cache: Path, key: str, source: Path, di: Path,
                         epochs: int, max_esr: float,
-                        ir: Path | None = None) -> tuple[Path, dict] | None:
+                        ir: Path | None = None, *, profile: str = "compact") -> tuple[Path, dict] | None:
     candidates = []
     source_hash, di_hash = digest(source), digest(di)
     for report_path in cache.glob(f"{key[:12]}-*/quality.json"):
@@ -85,6 +95,8 @@ def completed_candidate(cache: Path, key: str, source: Path, di: Path,
             report = json.loads(report_path.read_text(encoding="utf-8"))
             student = Path(report["student"]).resolve(strict=True)
             if (report["pipeline"] != (IR_PIPELINE_VERSION if ir else PIPELINE_VERSION)
+                    or report.get("loss_profile", "standard") != "standard"
+                    or report.get("model_profile", "compact") != profile
                     or report["epochs"] != epochs
                     or report["source_sha256"] != source_hash
                     or report["training_di_sha256"] != di_hash
@@ -93,7 +105,7 @@ def completed_candidate(cache: Path, key: str, source: Path, di: Path,
                     or digest(student) != report["student_sha256"]
                     or not valid_scores(report)):
                 continue
-            inspect_compact(json.loads(student.read_text(encoding="utf-8")))
+            inspect_compact(json.loads(student.read_text(encoding="utf-8")), profile)
             candidates.append((student, report))
         except (OSError, ValueError, KeyError, TypeError, json.JSONDecodeError):
             continue
@@ -126,11 +138,14 @@ def write_preview(work: Path) -> Path:
 
 
 def announce_result(student: Path, scores: dict, max_esr: float) -> None:
-    status = "accurate" if meets_quality(scores, max_esr) else "best-effort"
+    status = "accurate" if meets_quality(scores, max_esr) else "review-required"
     preview = write_preview(student.parents[2])
     result = {
-        "status": status, "esr": scores["esr"],
+        "status": status, "esr": scores["esr"], "max_esr": max_esr,
         "correlation": scores["correlation"]}
+    for name in ("model_profile", "loss_profile", "mrstft_weight"):
+        if name in scores:
+            result[name] = scores[name]
     if "ir_gain_db" in scores:
         result["ir_gain_db"] = scores["ir_gain_db"]
     print("QUALITY_RESULT=" + json.dumps(result), flush=True)
@@ -159,7 +174,7 @@ def validate_teacher_level(wet) -> bool:
 
 
 def prepare_pair(source: Path, di: Path, work: Path, rate: int,
-                 ir: Path | None = None) -> tuple[Path, Path, bool, dict]:
+                 ir: Path | None = None, *, profile: str = "compact") -> tuple[Path, Path, bool, dict]:
     import numpy as np
     import soundfile as sf
     from scipy.signal import resample_poly
@@ -178,7 +193,7 @@ def prepare_pair(source: Path, di: Path, work: Path, rate: int,
     teacher_native = work / "teacher_native.wav"
     command = [str(RENDERER)]
     if classify(source)["architecture"] == "SlimmableContainer":
-        command += ["--slim", "1.0"]
+        command += ["--slim", "0.0" if profile == "lite" else "1.0"]
     command += [str(source), str(native), str(teacher_native)]
     _run(command)
     rendered, rendered_rate = sf.read(teacher_native, dtype="float32")
@@ -200,14 +215,46 @@ def prepare_pair(source: Path, di: Path, work: Path, rate: int,
     return dry_path, wet_path, allow_float_overs, ir_level
 
 
-def prepare_configs(dry: Path, wet: Path, work: Path, epochs: int) -> tuple[Path, Path, Path]:
-    model = json.loads(MODEL_TEMPLATE.read_text(encoding="utf-8"))
+def training_split(dry: Path) -> dict:
+    """Exclude a repeated validation intro and leave history outside fitting.
+
+    NAM-style DI recordings can repeat the opening nine seconds at the end.
+    Holding out only the tail would then validate on audio already fitted.
+    """
+    import numpy as np
+    import soundfile as sf
+
+    count = round(VALIDATION_SECONDS * RATE)
+    with sf.SoundFile(dry) as stream:
+        if (stream.samplerate != RATE or stream.channels != 1
+                or stream.frames <= 2 * count + 2 * VALIDATION_GUARD_SECONDS * RATE):
+            raise ValueError("training DI must be mono 44.1 kHz with room for independent splits")
+        first = stream.read(count, dtype="float32")
+        stream.seek(stream.frames - count)
+        last = stream.read(count, dtype="float32")
+    repeated = bool(np.array_equal(first, last))
+    return {"start_seconds": VALIDATION_SECONDS + VALIDATION_GUARD_SECONDS if repeated else None,
+            "stop_seconds": -float(VALIDATION_SECONDS) - VALIDATION_GUARD_SECONDS,
+            "duplicate_intro_excluded": repeated,
+            "guard_seconds": VALIDATION_GUARD_SECONDS}
+
+
+def prepare_configs(dry: Path, wet: Path, work: Path, epochs: int,
+                    *, independent_validation: bool = False, profile: str = "compact") -> tuple[Path, Path, Path]:
+    model = json.loads(model_template(profile).read_text(encoding="utf-8"))
     learning = json.loads(LEARNING_TEMPLATE.read_text(encoding="utf-8"))
     learning["trainer"]["accelerator"] = "auto"
     learning["trainer"]["max_epochs"] = epochs
     learning["trainer"]["enable_progress_bar"] = True
+    split = training_split(dry) if independent_validation else {
+        "start_seconds": None, "stop_seconds": -float(VALIDATION_SECONDS)}
+    if independent_validation:
+        print("Training split: " + ("repeated validation intro excluded; "
+              if split["duplicate_intro_excluded"] else "")
+              + "250 ms history guard before validation", flush=True)
     data = {
-        "train": {"start_seconds": None, "stop_seconds": -float(VALIDATION_SECONDS), "ny": 8192},
+        "train": {"start_seconds": split["start_seconds"],
+                  "stop_seconds": split["stop_seconds"], "ny": 8192},
         "validation": {"start_seconds": -float(VALIDATION_SECONDS),
                        "stop_seconds": None, "ny": None,
                        "require_input_pre_silence": None},
@@ -225,7 +272,7 @@ def quality(student: Path, dry: Path, wet: Path, work: Path) -> dict:
 
     info = sf.info(dry)
     count = VALIDATION_SECONDS * RATE
-    context = 1644
+    context = inspect_compact(json.loads(student.read_text(encoding="utf-8"))).receptive_field
     with sf.SoundFile(dry) as stream:
         stream.seek(info.frames - count - context)
         probe = stream.read(count + context, dtype="float32")
@@ -253,29 +300,31 @@ def quality(student: Path, dry: Path, wet: Path, work: Path) -> dict:
 
 def adapt(source: Path, di: Path, cache: Path, *, epochs: int = 100,
           max_esr: float = 0.05, prepare_only: bool = False,
-          best_effort: bool = False, ir: Path | None = None) -> Path:
+          review_quality: bool = False, ir: Path | None = None, profile: str = "compact") -> Path:
     source, di, cache = source.resolve(strict=True), di.resolve(strict=True), cache.resolve()
     ir = ir.resolve(strict=True) if ir is not None else None
     if epochs < 1 or epochs > 300 or not 0 < max_esr < 1:
         raise ValueError("epochs must be 1..300 and max ESR must be between 0 and 1")
-    decision = classify(source)
+    decision = classify(source, profile)
     if decision["status"] != "adaptable" and not (ir and decision["status"] == "direct"):
         raise ValueError(f"model is {decision['status']}; adaptation requires an adaptable NAM or cab IR")
     if ir is not None:
         load_ir(ir)
-    for dependency in (RENDERER, MODEL_TEMPLATE, LEARNING_TEMPLATE):
+    for dependency in (RENDERER, model_template(profile), LEARNING_TEMPLATE):
         if not dependency.is_file():
             raise FileNotFoundError(f"adaptation dependency is missing: {dependency}")
     cache.mkdir(parents=True, exist_ok=True)
-    key = cache_key(source, di, epochs, ir)
+    key = cache_key(source, di, epochs, ir, profile=profile)
     if not prepare_only:
-        previous = completed_candidate(cache, key, source, di, epochs, max_esr, ir)
+        previous = completed_candidate(cache, key, source, di, epochs, max_esr, ir, profile=profile)
         if previous:
             student, report = previous
-            if not best_effort and not meets_quality(report, max_esr):
+            if not review_quality and not meets_quality(report, max_esr):
                 raise ValueError("previous adaptation failed the quality gate; "
-                                 "enable Best effort to use it")
+                                 "use the app to review the conversion")
             index = {"model": str(student.relative_to(cache)),
+                     "model_profile": profile, "loss_profile": "standard",
+                     "mrstft_weight": report.get("mrstft_weight"),
                      "model_sha256": digest(student), "esr": report["esr"],
                      "correlation": report["correlation"]}
             if "ir_gain_db" in report:
@@ -286,7 +335,7 @@ def adapt(source: Path, di: Path, cache: Path, *, epochs: int = 100,
             print(f"Reusing verified completed adaptation: {student}", flush=True)
             announce_result(student, report, max_esr)
             return student
-    ready = cached_model(cache, key, max_esr, best_effort=best_effort)
+    ready = cached_model(cache, key, max_esr, review_quality=review_quality, profile=profile)
     if ready:
         print(f"Cached adaptation: {ready}", flush=True)
         record = json.loads((cache / f"{key}.json").read_text(encoding="utf-8"))
@@ -295,8 +344,10 @@ def adapt(source: Path, di: Path, cache: Path, *, epochs: int = 100,
     work = Path(tempfile.mkdtemp(prefix=f"{key[:12]}-", dir=cache))
     print(f"Preparing teacher pair in {work}", flush=True)
     dry, wet, allow_float_overs, ir_level = prepare_pair(
-        source, di, work, decision["sample_rate"], ir)
-    data, model, learning = prepare_configs(dry, wet, work, epochs)
+        source, di, work, decision["sample_rate"], ir, **({"profile": profile} if profile != "compact" else {}))
+    data, model, learning = prepare_configs(dry, wet, work, epochs, profile=profile)
+    selected_loss = json.loads(model.read_text(encoding="utf-8"))["loss"]
+    print(f"Training loss: standard, MRSTFT weight {selected_loss.get('mrstft_weight')}", flush=True)
     if prepare_only:
         print("Prepared only; no training or cache publication", flush=True)
         return work
@@ -321,12 +372,21 @@ def adapt(source: Path, di: Path, cache: Path, *, epochs: int = 100,
     if len(exports) != 1:
         raise RuntimeError(f"expected one trained NAM export, found {len(exports)}")
     student = exports[0]
-    inspect_compact(json.loads(student.read_text(encoding="utf-8")))
+    inspect_compact(json.loads(student.read_text(encoding="utf-8")), profile)
     scores = quality(student, dry, wet, work)
     report = {"source": str(source), "source_sha256": digest(source),
               "training_di_sha256": digest(di), "student": str(student),
+              "model_config_sha256": digest(model_template(profile)),
+              "learning_config_sha256": digest(LEARNING_TEMPLATE),
+              "effective_model_config_sha256": digest(model),
+              "model_profile": profile, "loss_profile": "standard",
+              "mrstft_weight": selected_loss.get("mrstft_weight"),
               "student_sha256": digest(student),
               "pipeline": IR_PIPELINE_VERSION if ir else PIPELINE_VERSION,
+              "training_split": {"start_seconds": None,
+                                 "stop_seconds": -float(VALIDATION_SECONDS),
+                                 "validation_input_seen_in_training":
+                                     training_split(dry)["duplicate_intro_excluded"]},
               "epochs": epochs, "max_esr": max_esr, **scores}
     if ir is not None:
         report.update({"ir": str(ir), "ir_sha256": digest(ir), **ir_level})
@@ -334,9 +394,10 @@ def adapt(source: Path, di: Path, cache: Path, *, epochs: int = 100,
     print(f"Held-out ESR {scores['esr']:.5f}, correlation {scores['correlation']:.4f}", flush=True)
     if not valid_scores(scores):
         raise ValueError("adapted model has invalid quality scores")
-    if not best_effort and not meets_quality(scores, max_esr):
+    if not review_quality and not meets_quality(scores, max_esr):
         raise ValueError("adapted model failed the quality gate; see quality.json")
     index = {"model": str(student.relative_to(cache)), "model_sha256": digest(student),
+             "model_profile": profile, "loss_profile": "standard", "mrstft_weight": report["mrstft_weight"],
              "esr": scores["esr"], "correlation": scores["correlation"]}
     if ir is not None:
         index["ir_gain_db"] = ir_level["ir_gain_db"]

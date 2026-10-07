@@ -2,9 +2,13 @@ namespace Nam2ZoomDesktop;
 
 internal static class ConvertedNam
 {
-    public static string Save(string student, string original, string appDirectory)
+    public static string Save(string student, string original, string appDirectory, string? profile = null)
     {
         var directory = Path.Combine(appDirectory, "Converted_NAM");
+        if (profile is not null) {
+            if (profile is not ("compact" or "lite")) throw new ArgumentException("Unknown model profile", nameof(profile));
+            directory = Path.Combine(directory, profile == "lite" ? "Lite" : "Compact");
+        }
         Directory.CreateDirectory(directory);
         var name = Path.GetFileName(original);
         var stem = Path.GetFileNameWithoutExtension(name);

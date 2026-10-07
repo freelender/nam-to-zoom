@@ -57,7 +57,7 @@ class TemplateTests(unittest.TestCase):
             gap = image.crop((frame.width * 12 // 100, cy + radius + 3,
                               frame.width * 88 // 100, cy + radius + 5))
             self.assertIsNone(ImageOps.invert(gap.convert("L")).getbbox())
-        for count in range(1, 6):
+        for count in range(1, 11):
             with self.subTest(count=count):
                 zd2 = parse_zd2_bytes((directory / f"bank-{count}.ZD2").read_bytes())
                 embedded = next(chunk for chunk in zd2.chunks if chunk.tag == "ICON")
@@ -96,7 +96,7 @@ class TemplateTests(unittest.TestCase):
     def test_every_capacity_changes_data_not_code(self):
         directory = Path(TEMPLATES)
         index = json.loads((directory / "index.json").read_text())
-        for count in range(1, 6):
+        for count in range(1, 11):
             with self.subTest(count=count), tempfile.TemporaryDirectory() as temp:
                 models = self.models(count)
                 manifest = prepare_bank(models, Path(temp) / "bank")

@@ -17,21 +17,25 @@ def main() -> int:
 
     inspect = sub.add_parser("inspect-hybrid", help="classify a NAM import")
     inspect.add_argument("model", type=Path)
+    inspect.add_argument("--profile", choices=("compact", "lite"), default="compact")
 
     adapt = sub.add_parser("adapt", help="train a compact 44.1 kHz student")
     adapt.add_argument("model", type=Path)
     adapt.add_argument("--training-di", type=Path, required=True)
     adapt.add_argument("--cache", type=Path, required=True)
     adapt.add_argument("--epochs", type=int, default=100)
+    adapt.add_argument("--profile", choices=("compact", "lite"), default="compact")
     adapt.add_argument("--max-esr", type=float, default=0.05)
-    adapt.add_argument("--best-effort", action="store_true")
+    adapt.add_argument("--review-quality", action="store_true",
+                       help="return quality results for review before using the conversion")
     adapt.add_argument("--prepare-only", action="store_true")
     adapt.add_argument("--ir", type=Path, help="mono WAV cab IR to bake into the student")
 
-    bank = sub.add_parser("build-bank", help="build an offline 1-5 model effect")
+    bank = sub.add_parser("build-bank", help="build an offline 1-10 model effect")
     bank.add_argument("models", nargs="+", type=Path)
     bank.add_argument("--label", action="append", dest="labels")
     bank.add_argument("--output", type=Path, required=True)
+    bank.add_argument("--profile", choices=("compact", "lite"), default="compact")
     bank.add_argument("--prepare-only", action="store_true")
 
     install = sub.add_parser("install-bank", help="guarded MS Plus bank replacement")
@@ -50,18 +54,18 @@ def main() -> int:
     args = parser.parse_args()
     try:
         if args.command == "inspect-hybrid":
-            print(json.dumps(classify(args.model)))
+            print(json.dumps(classify(args.model, args.profile)))
         elif args.command == "adapt":
             from .adapt import adapt as run_adapt
 
             result = run_adapt(args.model, args.training_di, args.cache,
                                epochs=args.epochs, max_esr=args.max_esr,
                                prepare_only=args.prepare_only,
-                               best_effort=args.best_effort, ir=args.ir)
+                               review_quality=args.review_quality, ir=args.ir, profile=args.profile)
             print(f"READY_MODEL={result}")
         elif args.command == "build-bank":
-            models = load_models(args.models, args.labels)
-            manifest = prepare_bank(models, args.output)
+            models = load_models(args.models, args.labels, profile=args.profile)
+            manifest = prepare_bank(models, args.output, profile=args.profile)
             print(f"Prepared {len(models)} model(s) in {args.output}")
             if not args.prepare_only:
                 effect = build_bank(manifest)
