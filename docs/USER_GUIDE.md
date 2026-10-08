@@ -4,7 +4,7 @@
 
 Use the **Windows x64 portable ZIP** from the project's GitHub Releases, not the source-code ZIP. Extract the whole folder to a writable location such as Downloads, then run `nam2zoom-desktop.exe`. Keep all the files together. No developer tools, separate Python installation, or separate .NET installation are needed.
 
-This package uses the 14-layer compact network. Installation supports Zoom MS-50G+ firmware 1.40 and Zoom MS-70CDR+ firmware 1.20, and experimentally supports Zoom MS-60B+ firmware 1.20. No pedal firmware or NAM models are included.
+This package offers **Compact** (the default 14-layer network) and **Lite (alone)** (an experimental 23-layer network). Both run at 44.1 kHz with three channels; Lite must be the only active effect. Installation supports Zoom MS-50G+ firmware 1.40 and Zoom MS-70CDR+ firmware 1.20, and experimentally supports Zoom MS-60B+ firmware 1.20. No pedal firmware or NAM models are included.
 
 The project EXE is not code-signed; Windows may warn about an unfamiliar app. Obtain the ZIP from the project's own release and verify it before approving a warning.
 
@@ -14,11 +14,11 @@ If the Microsoft Visual C++ x64 runtime is missing or too old, the app offers to
 
 1. Drop one to ten `.nam` files into the app. Reorder them and give each a unique pedal label of at most five ASCII characters.
 2. Optionally select a mono Cab IR WAV for a model. The app includes that cab response in the conversion target; the pedal does not run a separate IR convolver. Do not add a second cab if the NAM already includes one unless that is intentional.
-3. Choose training epochs (100 by default, maximum 300) and **Build effect**. Compatible 44.1 kHz compact models go straight to packaging. Other supported models need conversion; incompatible/invalid architectures are refused, not silently accepted.
+3. Choose **Compact** or **Lite (alone)**, training epochs (100 by default, maximum 300), and **Build effect**. Compatible 44.1 kHz models matching the selected profile go straight to packaging. Other supported models need conversion; incompatible/invalid architectures are refused, not silently accepted.
 4. On the first conversion, approve the training-package download. Choose **No** for CPU or **Yes** for NVIDIA CUDA packages. CPU is broadly usable but slower; GPU acceleration needs a compatible installed NVIDIA driver. The app reports whether CUDA is available. It does not install drivers. Downloads can consume several GB and are kept under `.tooling` inside the extracted app folder. You can cancel setup/build; retrying resumes package setup. No pedal writes happen during this step.
 5. Wait for conversion and preview the original/converted audio before installing. The app caches conversions under `%LOCALAPPDATA%\nam2zoom\adapt-cache`; changing training settings or IR contents produces a different cache entry. If any converted NAM exceeds the ESR limit of 0.05 (or has correlation below 0.95), one dialog after all conversions lists the affected filenames and scores. The A/B preview folder opens for comparison. Choose **Yes** to use those conversions and finish building, or **No** to stop while keeping the previews and cached results. Passing models need no quality approval. Unsupported models and invalid audio still stop the build.
 
-Conversion trains a **44.1 kHz, 3-channel, 14-layer** student against the source model. A 48 kHz source is rendered at its native rate and its target audio resampled before training. This is model adaptation, not simply editing the NAM sample-rate field. The source files are never modified.
+Conversion trains a **44.1 kHz, 3-channel** student against the source model: 14 layers for Compact or 23 layers for Lite. A 48 kHz source is rendered at its native rate and its target audio resampled before training. This is model adaptation, not simply editing the NAM sample-rate field. The source files are never modified.
 
 The 14-layer network exports 659 weights. Compatible previous 14-layer
 conversions can be packaged directly. For models converted with the experimental
@@ -28,11 +28,17 @@ conversions can be packaged directly. For models converted with the experimental
 Choose **Compact** or **Lite (alone)** beside Epochs before building. The choice
 applies to the entire bank and is saved with the model list.
 
-- **Compact** is the established 14-layer, 3-channel network (659 weights).
+- **Compact** is the established 14-layer, 3-channel network (659 weights),
+  with a declared load of 150 raw. Choose it for patches with other effects,
+  and test the exact chain before saving it.
 - **Lite (alone)** uses the full native A2 Lite geometry: 23 layers, 3 channels,
   convolution kernels of 6/15 and a 16-sample output head (1,871 weights).
   It retrains at 44.1 kHz. For packed A2 imports, the teacher is the original
   Lite submodel; other supported NAM architectures are rendered as usual.
+
+All models in one bank use the selected architecture; Compact and Lite cannot
+be mixed in the same bank. Lite's name refers to NAM's A2 architecture, not
+lower pedal DSP use than Compact.
 
 Lite is a retrained model, not an unchanged native 48 kHz model. The optimized
 kernel has been reported working alone with JCM800, Twin Reverb and Mark IIC+
@@ -87,7 +93,7 @@ The amp receives the average of the left and right channels and sends its mono o
 
 ## Known Limits
 
-Load 150 is declared scheduling metadata, not a measured DSP percentage. The earlier six-control binary passed a saved chain with N2Z, ZNR, RackComp, TS Drive, Hall REV, and LowPassFL. Substituting FD B-MAN led to PROCESS OVERFLOW on N2Z after reboot. The user reported two active 14-layer N2Z effects running cleanly; saving that combination was blocked by the declared load. That observation does not validate saved-patch behavior. Every new binary and chain needs its own audio, patch recall, and reboot test before being treated as working.
+Compact declares load 150; Lite reserves the full patch budget of 270 and must run alone. These values are scheduling metadata, not measured DSP percentages. The earlier six-control Compact binary passed a saved chain with N2Z, ZNR, RackComp, TS Drive, Hall REV, and LowPassFL. Substituting FD B-MAN led to PROCESS OVERFLOW on N2Z after reboot. The user reported two active 14-layer N2Z effects running cleanly; saving that combination was blocked by the declared load. That observation does not validate saved-patch behavior. Every new binary and chain needs its own audio, patch recall, and reboot test before being treated as working.
 
 The default seven-control effect uses the two-sample kernel reported working on an MS-50G+ with firmware 1.40 on 2026-09-29. This leaves model weights and geometry unchanged. Users have also confirmed N2Z Bank working on MS-70CDR+, and portable conversions working with both CPU and NVIDIA GPU training. MS-60B+ support uses the shared MS Plus protocol but awaits N2Z Bank hardware testing. Treat MS-60B+ installation as experimental, start with N2Z as the only effect in an unsaved patch, and report the exact pedal firmware and result. On MS-60B+, N2Z Bank appears in PREAMP. Guarded installation reduces risk but does not eliminate the possibility of freezing or permanently disabling a pedal.
 

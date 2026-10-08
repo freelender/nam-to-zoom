@@ -10,10 +10,14 @@ The ten model slots are selected with the effect's **Model** control. The
 other controls are **Bass, Mid, Treble, Vol, Input, Mix**. Pedal labels are unique
 ASCII strings of at most five characters.
 
-Each selected model runs as a **44.1 kHz, 3-channel, 14-layer** NAM student
-on the pedal. The builder uses the two-sample kernel and declares a raw DSP
-load of **150**. The load declaration is patch-admission metadata, not a
-measured CPU percentage. Check DSP headroom for each effect-chain configuration.
+Each selected model runs as a **44.1 kHz, 3-channel** NAM student on the pedal.
+Choose **Compact** (default: 14 layers, 659 weights per model, raw DSP load 150)
+or **Lite (alone)** (23 layers, 1,871 weights per model, raw DSP load 270).
+Both use a two-sample kernel, and one profile applies to the entire bank.
+Lite must be the only active effect; Compact effect chains still require
+testing. Load declarations are patch-admission metadata, not measured CPU
+percentages. See [Compact and Lite builds](#compact-and-lite-builds) for
+architecture, packaging and hardware status.
 
 This is a source project, not a prebuilt portable release. Building and
 converting NAM files require the tools below. Installation targets the device
@@ -118,7 +122,8 @@ can be large, and must not be committed.
 
 1. Drop in one to ten `.nam` files. Reorder them and edit each pedal label.
    The app classifies each as direct, adaptable, or unsupported. A direct NAM
-   already has the exact 44.1 kHz, 14-layer, three-channel compact shape.
+   already has the exact 44.1 kHz, three-channel shape of the selected profile
+   (14 layers for Compact or 23 for Lite).
 2. Optionally choose a **Cab IR** WAV for any selected model. The IR belongs
    only to that model and is saved in the model list by path. Choose **Clear**
    to return to the original no-IR path. Use a mono WAV at 44.1, 48, 88.2, or
@@ -163,16 +168,18 @@ can be large, and must not be committed.
    folder; it does not write to a pedal. The app includes the supplied
    monochrome artwork in both artifacts. All models become one bank effect,
    with only the selected model processed at a time. Every build uses the
-   optimized 3-channel kernel and the 150 load declaration.
+   selected profile's optimized 3-channel kernel: Compact declares load 150,
+   while Lite reserves 270 and must run alone.
 6. **Build + Install** builds first, then separately asks for approval of the
    exact SHA-256 hashes. It accepts only MS-50G+ firmware 1.40, MS-70CDR+
    firmware 1.20, or MS-60B+ firmware 1.20 and selects the profile from the
    identity response. MS-60B+ support awaits N2Z Bank hardware testing. Read the
    safety section below before using it.
 
-The Compact student has **659 float32 weights per model**. Ten slots therefore store
-6,590 weights, with only the selected network running. The effect shares
-one 20,076-byte history buffer across selected models; switching
+The Compact student has **659 float32 weights per model**; Lite has **1,871**.
+Ten slots therefore store 6,590 or 18,710 weights respectively, with only the
+selected network running. The effect shares one history buffer across selected
+models: 20,076 bytes for Compact or 76,728 bytes for Lite. Switching
 briefly mutes while that history clears and warms. The seven controls are
 Model, Bass/Mid/Treble (neutral at 50), Vol (unity at 50), Input (unity at 50),
 and Mix (dry/wet, default 100). Mix 0 passes the unprocessed dry signal;
@@ -284,8 +291,10 @@ firmware 1.20 is listed on [Zoom's support page](https://zoomcorp.com/en/gb/mult
 It uses the same bank artifacts and guarded install/uninstall paths; group
 `0x04` places N2Z Bank in PREAMP on MS-60B+. Other firmware versions remain
 refused. N2Z Bank has not yet been auditioned on this pedal.
-`build-bank` always produces the 3-channel, 14-layer optimized bank with the
-150 load declaration. The desktop app uses the same backend.
+`build-bank --profile compact` (the default) produces the 3-channel, 14-layer
+optimized bank with load 150. `build-bank --profile lite` produces the
+3-channel, 23-layer bank with load 270 for standalone use. The desktop app
+uses the same backend; banks cannot mix profiles.
 
 ## Build A Portable Release
 

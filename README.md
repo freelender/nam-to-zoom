@@ -17,12 +17,34 @@ Zoom MS Plus custom effect named **N2Z Bank**. The pedal effect exposes
 **Model, Bass, Mid, Treble, Vol, Input,** and **Mix** controls; only the
 selected model runs at a time.
 
-The current build targets fixed 44.1 kHz, 3-channel, 14-layer student models
-and uses the pedal-tested two-sample kernel. The five-model, seven-control
+Choose **Compact** (the default) or **Lite (alone)** for the entire bank.
+Both profiles run at 44.1 kHz with three channels and a two-sample kernel.
+Compact uses the pedal-tested 14-layer network. The five-model, seven-control
 build was reported working on MS-50G+ firmware 1.40 on 2026-09-29. N2Z Bank
 has also been tested and confirmed working on MS-70CDR+. This is still a
 preview release: new models, devices, saved patches,
 and effect chains require their own checks before you trust them on hardware.
+
+## Compact And Lite
+
+| Profile | Network | Weights per model | Declared DSP load | Intended use |
+| --- | --- | --- | --- | --- |
+| **Compact** (default) | 14 layers, 3 channels, 44.1 kHz | 659 | 150 raw | Use with other pedal effects, subject to testing the exact chain |
+| **Lite (alone)** | 23 layers, 3 channels, 44.1 kHz | 1,871 | 270 raw (full patch budget) | Use as the only active effect |
+
+Lite follows the native NAM A2 Lite network geometry, retrained at 44.1 kHz.
+Its name does not mean it uses less pedal DSP than Compact. The optimized
+Lite kernel has been reported working alone with JCM800, Twin Reverb and
+Mark IIC+ captures; adding even one other effect caused slowdown and
+crackling. Lite remains experimental, and firmware admission, saved-patch
+recall and reboot behavior still need hardware verification.
+
+Select the profile beside Epochs before building. All one to ten models in
+the bank use that profile; Compact and Lite cannot be mixed in one bank.
+Each has separate conversion caches, templates and exported NAM folders.
+Compatible 44.1 kHz NAMs for the selected profile package directly; other
+supported models require adaptation. See the [User Guide](docs/USER_GUIDE.md)
+for conversion and installation details.
 
 #### N2Z Bank effect location
 
@@ -43,7 +65,8 @@ a writable location and run `nam2zoom-desktop.exe`; do not copy the EXE away
 from its bundled files.
 
 Drop in one to ten NAM files, choose their order, set unique five-character
-pedal labels, optionally add mono cab IR WAVs, then build and preview. Direct
+pedal labels, choose Compact or Lite (alone), optionally add mono cab IR WAVs,
+then build and preview. Direct
 compatible NAMs package immediately. Other supported NAMs are adapted on the
 PC into the fixed pedal network; the app asks before downloading training
 packages and offers CPU or NVIDIA CUDA setup. The source NAM and IR files are
@@ -85,8 +108,8 @@ user model weights are never distributed.
   firmware 1.20. N2Z Bank has not yet been hardware-tested on MS-60B+.
   Device identity is detected
   automatically; other models and firmware versions are refused.
-- The effect declares load 150; this is patch-admission metadata, not measured
-  DSP utilization.
+- Compact declares load 150; Lite declares 270 and must run alone. These are
+  patch-admission values, not measured DSP utilization.
 - Custom effects can cause slowdown, crackling, overflow, freezing, or
   permanent device failure. Readback verification does not prove safe real-time
   behavior.
