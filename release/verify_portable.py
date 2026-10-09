@@ -20,6 +20,27 @@ def run(*args, env=None, cwd=None):
     subprocess.run(list(map(str, args)), env=env, cwd=cwd, check=True, timeout=600)
 
 
+def macos_library_names(linked):
+    """Read otool -L records, excluding every per-architecture filename header.
+
+    Universal binaries print a new unindented header for each architecture.
+    Library/install-name records are indented and carry version metadata.
+    Keep dylibs' own install names: absolute build paths there still fail audit.
+    """
+    for line in linked.splitlines():
+        if not line.strip() or not line[:1].isspace():
+            continue
+        name, separator, _ = line.strip().rpartition(" (compatibility version ")
+        if not separator or not name:
+            raise RuntimeError(f"Unexpected otool library record: {line}")
+        yield name
+
+
+def nonportable_macos_libraries(linked):
+    return [name for name in macos_library_names(linked)
+            if name.startswith("/") and not name.startswith(("/usr/lib/", "/System/Library/"))]
+
+
 def inside(resources, work):
     sys.path.insert(0, str(resources / "tools"))
     sys.path.insert(0, str(SOURCE / "tests"))
@@ -120,13 +141,9 @@ def verify(payload, rid):
                     magic = stream.read(4)
                 if magic not in (b"\xcf\xfa\xed\xfe", b"\xfe\xed\xfa\xcf", b"\xca\xfe\xba\xbe", b"\xbe\xba\xfe\xca"):
                     continue
-                linked = subprocess.check_output(["/usr/bin/otool", "-L", str(file)], text=True)
-                for line in linked.splitlines()[1:]:
-                    dependency = line.strip().split(" (", 1)[0]
-                    if dependency.startswith("/") and not dependency.startswith(("/usr/lib/", "/System/Library/")):
-                        # A dylib may report its own install-name as the first
-                        # record. An absolute build path is still not portable.
-                        raise RuntimeError(f"Nonportable native dependency: {file}: {dependency}")
+                linked = subprocess.check_output(["/usr/bin/otool", "-arch", "all", "-L", str(file)], text=True)
+                for dependency in nonportable_macos_libraries(linked):
+                    raise RuntimeError(f"Nonportable native dependency: {file}: {dependency}")
         env = os.environ.copy()
         env.update(PYTHONPATH=str(resources / "tools"), PYTHONDONTWRITEBYTECODE="1", PYTHONUTF8="1",
                    NAM2ZOOM_DATA_DIR=str(work / "user data"), MPLCONFIGDIR=str(work / "mpl-cache"),
