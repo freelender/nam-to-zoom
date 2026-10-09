@@ -25,6 +25,25 @@ def python_at(home):
     return home / ("python.exe" if os.name == "nt" else "bin/python3")
 
 
+def normalize_patch_inputs(target, paths):
+    """Normalize only explicitly pinned third-party patch inputs, before patching.
+
+    zoom-zt2 commits CRLF blobs. Git on Windows can hide the mismatch with our
+    LF patches; macOS/Linux do not. Preserve every byte except CRLF endings.
+    Never normalize production DSP sources: their template hashes are exact.
+    """
+    target = target.resolve()
+    for name in paths:
+        path = (target / name).resolve()
+        if not path.is_relative_to(target):
+            raise ValueError(f"Patch input escapes dependency checkout: {name}")
+        original = path.read_bytes()
+        normalized = original.replace(b"\r\n", b"\n")
+        if normalized != original:
+            print(f"Normalizing third-party patch input to LF: {path}", flush=True)
+            path.write_bytes(normalized)
+
+
 def checkout_dependencies():
     pins = json.loads((ROOT / "release/dependencies.json").read_text())
     for name, pin in pins.items():
@@ -40,6 +59,7 @@ def checkout_dependencies():
             # Match setup.ps1: only the direct Core dependencies are used.
             # AudioDSPTools' nested duplicate Eigen checkout is not needed.
             run("git", "submodule", "update", "--init", cwd=target)
+        normalize_patch_inputs(target, pin.get("lf_patch_inputs", []))
     # Catalogue patches touch the separately cloned zoom-zt2 child, so every
     # checkout must exist before any cross-checkout patch is applied.
     for name, pin in pins.items():
