@@ -1,0 +1,6 @@
+{
+  "stomphacks": {"url": "https://github.com/thammer/stomphacks.git", "revision": "ebd5ced93988d595bb42c825dd9bd89626b300e6", "patches": ["stomphacks.patch", "stomphacks-catalogue.patch", "stomphacks-ten-models.patch", "stomphacks-user-data.patch"]},
+  "stomphacks/zoom-zt2": {"url": "https://github.com/mungewell/zoom-zt2.git", "revision": "b1f63b0bee6d2d1bc9755958fc8cf15887efbdcf", "patches": []},
+  "neural-amp-modeler": {"url": "https://github.com/sdatkinson/neural-amp-modeler.git", "revision": "0072676419459f5d39e36f5b9fd4172f28d62cbf", "patches": ["neural-amp-modeler.patch"]},
+  "NeuralAmpModelerCore": {"url": "https://github.com/sdatkinson/NeuralAmpModelerCore.git", "revision": "0b3d3c97b0859a3a8c92a8628c4dd89a25eb5842", "patches": [], "submodules": true}
+}

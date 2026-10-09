@@ -6,6 +6,7 @@ import random
 import shutil
 import struct
 import subprocess
+import sys
 import tempfile
 import unittest
 
@@ -80,6 +81,8 @@ def derive_callback(source):
 
 class PairBankTests(unittest.TestCase):
     def test_callback_replay(self):
+        if sys.platform == "darwin":
+            self.skipTest("macOS has no 32-bit host ABI; callback replay runs on Windows CI")
         clang = find_clang()
         if not clang:
             self.skipTest("host Clang unavailable")

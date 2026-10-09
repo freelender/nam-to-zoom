@@ -14,10 +14,11 @@ import tempfile
 from .compact import geometry, inspect as inspect_compact
 from .hybrid import classify
 from .ir import bake, fit_teacher_level, load_ir
+from .platforms import renderer, data_root
 
 
 ROOT = Path(__file__).resolve().parents[2]
-RENDERER = ROOT / "reference/nam_a2/build-core-ninja/core_render.exe"
+RENDERER = renderer()
 MODEL_TEMPLATE = ROOT / "training/a2-mid-44100/model.json"
 LEARNING_TEMPLATE = ROOT / "training/a2-compact-44100/learning.json"
 PIPELINE_VERSION = "teacher-student-full-v2"
@@ -243,7 +244,8 @@ def prepare_configs(dry: Path, wet: Path, work: Path, epochs: int,
                     *, independent_validation: bool = False, profile: str = "compact") -> tuple[Path, Path, Path]:
     model = json.loads(model_template(profile).read_text(encoding="utf-8"))
     learning = json.loads(LEARNING_TEMPLATE.read_text(encoding="utf-8"))
-    learning["trainer"]["accelerator"] = "auto"
+    # MPS has not passed NAM training/export parity checks. Never select it implicitly.
+    learning["trainer"]["accelerator"] = "cpu" if sys.platform == "darwin" else "auto"
     learning["trainer"]["max_epochs"] = epochs
     learning["trainer"]["enable_progress_bar"] = True
     split = training_split(dry) if independent_validation else {
@@ -360,7 +362,7 @@ def adapt(source: Path, di: Path, cache: Path, *, epochs: int = 100,
     env["PYTHONUNBUFFERED"] = "1"
     env["NAM2ZOOM_TEXT_PROGRESS"] = "1"
     env["MPLBACKEND"] = "Agg"
-    env["MPLCONFIGDIR"] = str(ROOT / ".tooling" / "nam-mpl-cache")
+    env["MPLCONFIGDIR"] = str(data_root() / "nam-mpl-cache")
     if allow_float_overs:
         env["NAM2ZOOM_ALLOW_FLOAT_OVERS"] = "1"
     print("Starting training; CPU thread limits: "

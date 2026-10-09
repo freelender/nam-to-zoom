@@ -1,5 +1,14 @@
 # nam2zoom
 
+Cross-platform migration preview: the new .NET 10 Avalonia frontend lives in
+`apps/nam2zoom-avalonia`; the original WinForms app is preserved. See the
+[repository audit and migration plan](docs/CROSS_PLATFORM.md) and
+[portable Windows/macOS instructions](docs/PORTABLE.md). The
+`Portable Windows and macOS` Actions workflow builds three target-native ZIPs
+and publishes matching `vX.Y.Z` tags after all targets pass validation.
+macOS builds and all macOS USB-MIDI operations require CI/manual validation;
+they are not claimed hardware-tested.
+
 ## Supported Devices
 
 | Zoom pedal    | Status                             |
@@ -144,3 +153,5 @@ Project code is released under the [MIT License](LICENSE), copyright 2026
 Aleksandar Vukasinovic. Third-party dependencies keep their own licenses, and
 portable packages include notices. User-selected NAM models are not part of
 this project or its releases.
+
+Lite banks support at most **3 NAM models**; Compact banks support at most **10**. Only the selected model runs. This model-count limit does not resolve the reported Lite saved-patch/startup failure; keep Lite patches unsaved.

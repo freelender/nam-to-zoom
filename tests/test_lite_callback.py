@@ -3,6 +3,7 @@ from pathlib import Path
 import shutil
 import struct
 import subprocess
+import sys
 import tempfile
 import unittest
 from test_kernel_optimization import find_clang
@@ -18,9 +19,12 @@ class LiteCallbackTests(unittest.TestCase):
         self.replay("compact", 659)
 
     def replay(self, profile, words_per_model):
+        if sys.platform == "darwin":
+            self.skipTest("macOS has no 32-bit host ABI; callback replay runs on Windows CI")
         clang = find_clang()
         if not clang:
             self.skipTest("host Clang unavailable")
+        model_count = 3 if profile == "lite" else 10
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary)
             for name in ("compact_pair.c", "compact_pair.h", "compact_kernel.h"):
@@ -33,9 +37,9 @@ class LiteCallbackTests(unittest.TestCase):
                               zip(("MODEL", "BASS", "MID", "TREBLE", "VOL", "INPUT", "MIX"),
                                   (3, 5, 6, 7, 8, 9, 10)))
             (root / "sh_params.h").write_text(header)
-            (root / "bank_config.h").write_text(f"#define BANK_MODEL_COUNT 10u\n#define BANK_SELECTOR_MAX 9u\n#define BANK_WORDS_PER_MODEL {words_per_model}u\n")
-            weights = [0.] * (words_per_model * 10)
-            for i in range(10):
+            (root / "bank_config.h").write_text(f"#define BANK_MODEL_COUNT {model_count}u\n#define BANK_SELECTOR_MAX {model_count - 1}u\n#define BANK_WORDS_PER_MODEL {words_per_model}u\n")
+            weights = [0.] * (words_per_model * model_count)
+            for i in range(model_count):
                 weights[i * words_per_model + words_per_model - 2] = .1 * (i + 1)
                 weights[i * words_per_model + words_per_model - 1] = 1.
             words = struct.unpack(f"<{len(weights)}I", struct.pack(f"<{len(weights)}f", *weights))
@@ -73,8 +77,8 @@ int main(void) {
     ctx[SH_CTX_EFF] = bus;
     coeff[0] = coeff[10] = 1.0f;
     coeff[5] = coeff[6] = coeff[7] = coeff[8] = coeff[9] = .5f;
-    for (i = 0; i < 10; ++i) {
-        coeff[3] = i / 9.0f;
+    for (i = 0; i < BANK_MODEL_COUNT; ++i) {
+        coeff[3] = i / (float)BANK_SELECTOR_MAX;
         if (run(500, .1f * (i + 1)) || state->active_model != i
             || state->warm_count != BANK_WARMUP_FRAMES) return 10 + i;
     }
@@ -90,10 +94,10 @@ int main(void) {
     coeff[10] = 1.0f;
     for (i = 1; i <= HISTORY_FLOATS; ++i) arena[i] = NAN;
     if (run(1, 0.0f) || state->initialized != RECOVERING) return 23;
-    if (run(500, 1.0f)) return 24;
+    if (run(500, .1f * BANK_MODEL_COUNT)) return 24;
     coeff[10] = 0.0f;
     if (run(1, .2f)) return 25;
-    puts("Callback: ten slots, receptive-field warmup, descriptor/state guards, recovery and dry mix PASS");
+    puts("Callback: all supported slots, receptive-field warmup, descriptor/state guards, recovery and dry mix PASS");
     return 0;
 }
 '''

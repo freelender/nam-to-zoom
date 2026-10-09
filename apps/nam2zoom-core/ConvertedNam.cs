@@ -1,6 +1,6 @@
 namespace Nam2ZoomDesktop;
 
-internal static class ConvertedNam
+public static class ConvertedNam
 {
     public static string Save(string student, string original, string appDirectory, string? profile = null)
     {

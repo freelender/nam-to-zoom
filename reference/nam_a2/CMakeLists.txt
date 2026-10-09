@@ -10,7 +10,7 @@ if(NOT CORE_ROOT)
 endif()
 
 file(GLOB CORE_SOURCES "${CORE_ROOT}/NAM/*.cpp" "${CORE_ROOT}/NAM/*/*.cpp")
-add_executable(core_render "${CORE_ROOT}/tools/render.cpp"
+add_executable(core_render "${CMAKE_CURRENT_SOURCE_DIR}/renderer_main.cpp"
   "${CORE_ROOT}/Dependencies/AudioDSPTools/dsp/wav.cpp" ${CORE_SOURCES})
 target_include_directories(core_render PRIVATE
   "${CORE_ROOT}" "${CORE_ROOT}/tools"

@@ -1,14 +1,14 @@
 namespace Nam2ZoomDesktop;
 
-internal sealed class BuildWorkspace(string output)
+public sealed class BuildWorkspace(string output)
 {
-    internal string Output { get; } = Path.GetFullPath(output);
-    internal string StagedPreviews => Output + "-preview";
+    public string Output { get; } = Path.GetFullPath(output);
+    public string StagedPreviews => Output + "-preview";
 
-    internal static BuildWorkspace Create(string parent) => new(Path.Combine(parent,
+    public static BuildWorkspace Create(string parent) => new(Path.Combine(parent,
         "n2z-bank-" + DateTime.Now.ToString("yyyyMMdd-HHmmss") + "-" + Guid.NewGuid().ToString("N")[..8]));
 
-    internal string? StagePreviews(IEnumerable<(string Label, string Directory)> previews)
+    public string? StagePreviews(IEnumerable<(string Label, string Directory)> previews)
     {
         var copied = false;
         foreach (var (label, source) in previews) {
@@ -21,7 +21,7 @@ internal sealed class BuildWorkspace(string output)
         return copied ? StagedPreviews : null;
     }
 
-    internal string? CompletePreviews()
+    public string? CompletePreviews()
     {
         if (!Directory.Exists(StagedPreviews)) return null;
         if (!Directory.Exists(Output))

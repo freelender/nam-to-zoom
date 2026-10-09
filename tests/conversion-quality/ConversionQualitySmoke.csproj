@@ -6,6 +6,6 @@
     <Nullable>enable</Nullable>
   </PropertyGroup>
   <ItemGroup>
-    <Compile Include="../../apps/nam2zoom-desktop/ConversionQuality.cs" Link="ConversionQuality.cs" />
+    <Compile Include="../../apps/nam2zoom-core/ConversionQuality.cs" Link="ConversionQuality.cs" />
   </ItemGroup>
 </Project>

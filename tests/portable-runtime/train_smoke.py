@@ -49,8 +49,18 @@ if len(exports) != 1:
     raise RuntimeError("training did not export exactly one NAM")
 inspect(json.loads(exports[0].read_text()), args.profile)
 rendered = work / "rendered.wav"
-subprocess.run([str(root / "reference/nam_a2/build-core-ninja/core_render.exe"),
+from nam2zoom.platforms import renderer
+subprocess.run([str(renderer()),
                 str(exports[0]), str(dry), str(rendered)], check=True)
 output, output_rate = sf.read(rendered)
 assert output_rate == rate and len(output) == len(audio) and np.isfinite(output).all()
+os.environ["NAM2ZOOM_PARITY_MODEL"] = str(exports[0])
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+import unittest
+import test_nam_core_parity
+test_nam_core_parity.ROOT = root
+parity = unittest.TextTestRunner().run(unittest.defaultTestLoader.loadTestsFromTestCase(
+    test_nam_core_parity.NamCoreParityTests))
+if not parity.wasSuccessful() or parity.skipped:
+    raise RuntimeError("Trained student did not pass native/pedal-kernel numerical parity")
 print("Portable CPU training, student shape, and native rendering: PASS")

@@ -1,0 +1,12 @@
+# Native scientific wheels still available for Intel. PyTorch itself is built
+# from v2.11.0 source; the NAM source, loss and training code are unchanged.
+numpy==1.26.4
+scipy==1.13.1
+matplotlib==3.9.4
+numba==0.60.0
+llvmlite==0.43.0
+scikit-learn==1.5.2
+librosa==0.10.2.post1
+soundfile==0.14.0
+torch==2.11.0
+pytorch-lightning==2.6.1

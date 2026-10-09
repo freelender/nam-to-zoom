@@ -12,6 +12,8 @@ release/templates/
 n2z-bank-*/
 *.ZD2
 *.ZIC
+!release/precompiled/**/*.ZD2
+!release/precompiled/**/*.ZIC
 *.out
 *.user
 *.suo

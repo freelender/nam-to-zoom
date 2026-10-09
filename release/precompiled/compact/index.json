@@ -1,0 +1,64 @@
+{
+  "format": "nam2zoom.templates.v1",
+  "banks": {
+    "1": {
+      "sha256": "94a02cf32aa61eb8fddbe8e99c4b15949b2627f955e3416923b59720cf9a88c8",
+      "weights_offset": 12267,
+      "labels_offset": 14907
+    },
+    "2": {
+      "sha256": "a011b86efc367af97a84a215429a8f4a25edd04cb1b62a8310353e4990aa0491",
+      "weights_offset": 12267,
+      "labels_offset": 17539
+    },
+    "3": {
+      "sha256": "bf0b31ef04ce641ff95b5ad1134a43c60398c5e11c3fbad1586d0a62136bc0b2",
+      "weights_offset": 12235,
+      "labels_offset": 20147
+    },
+    "4": {
+      "sha256": "306b6c80d4e35ec6f483f7996460cb54fa1b2e1d97a2c6b1172d9aa5ef9f337f",
+      "weights_offset": 12235,
+      "labels_offset": 22779
+    },
+    "5": {
+      "sha256": "53f03a910ff6e1f43cfcda2341540c38d47e7631a54c20dccea1d5ef05994d30",
+      "weights_offset": 12235,
+      "labels_offset": 25419
+    },
+    "6": {
+      "sha256": "1f8262fab87b227d06f2deba50490b4bfbed5931ba46997a997ee52cd2ac4d3e",
+      "weights_offset": 12235,
+      "labels_offset": 28051
+    },
+    "7": {
+      "sha256": "5d75aea8607a32622cef2b118fcb6280ebf137c71ecbdfe192969594b0b13abb",
+      "weights_offset": 12235,
+      "labels_offset": 30691
+    },
+    "8": {
+      "sha256": "9e8b89847eccd9f9862af061930448fbf9f95e815187ed47b50b6d28b9c0efc6",
+      "weights_offset": 12235,
+      "labels_offset": 33323
+    },
+    "9": {
+      "sha256": "e2fec388f9eda16c13daca638b2d84f030a5d34f4e1f877db64e3862637e94e5",
+      "weights_offset": 12235,
+      "labels_offset": 35963
+    },
+    "10": {
+      "sha256": "6480342861205aa703071d7719aa471b63a962c94ef285d41baa54481ef96cc3",
+      "weights_offset": 12235,
+      "labels_offset": 38595
+    }
+  },
+  "model_profile": "compact",
+  "reserved_dsp_load": 150,
+  "dsp_source_sha256": {
+    "dsp/nam_a2_bank_zd2/bank_effect.c": "0638f1d0fa9eac48e84ee4e7bd52d79c5af845d3b34e5b0ecdf921f663f6d355",
+    "dsp/nam_a2_compact/compact_pair.c": "959a82b31080feda84aac978a1a3a7c2f7917ed26b18435ed6018a258c990c9c",
+    "dsp/nam_a2_compact/compact_pair.h": "341cf3cb5e3baffd0292e6bc4fb646ec747681707e3be8084cb060e00c1e0fe0",
+    "dsp/nam_a2_compact/compact_kernel.h": "a4132ee3962fe0d8f45cfa9c87fa0479d1a280f2495c022c1c92bb235d955059"
+  },
+  "icon_sha256": "5a8e36db1d3dcd2d49ce7b77e30c362017b6856fb3cd0284b2c2f6afa516baf8"
+}

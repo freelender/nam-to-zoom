@@ -6,6 +6,6 @@
     <Nullable>enable</Nullable>
   </PropertyGroup>
   <ItemGroup>
-    <Compile Include="../../apps/nam2zoom-desktop/BuildWorkspace.cs" Link="BuildWorkspace.cs" />
+    <Compile Include="../../apps/nam2zoom-core/BuildWorkspace.cs" Link="BuildWorkspace.cs" />
   </ItemGroup>
 </Project>

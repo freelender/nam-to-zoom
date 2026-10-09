@@ -95,10 +95,14 @@ function Ensure-Checkout([string]$directory, [string]$url, [string]$revision,
 
 Ensure-Checkout $stomp 'https://github.com/thammer/stomphacks.git' $stompRev `
     (Join-Path $root 'patches/stomphacks.patch') $false
+Ensure-Checkout (Join-Path $stomp 'zoom-zt2') 'https://github.com/mungewell/zoom-zt2.git' `
+    'b1f63b0bee6d2d1bc9755958fc8cf15887efbdcf' '' $false
 Ensure-Checkout $stomp 'https://github.com/thammer/stomphacks.git' $stompRev `
     (Join-Path $root 'patches/stomphacks-catalogue.patch') $false
 Ensure-Checkout $stomp 'https://github.com/thammer/stomphacks.git' $stompRev `
     (Join-Path $root 'patches/stomphacks-ten-models.patch') $false
+Ensure-Checkout $stomp 'https://github.com/thammer/stomphacks.git' $stompRev `
+    (Join-Path $root 'patches/stomphacks-user-data.patch') $false
 Ensure-Checkout $nam 'https://github.com/sdatkinson/neural-amp-modeler.git' $namRev `
     (Join-Path $root 'patches/neural-amp-modeler.patch') $false
 Ensure-Checkout $core 'https://github.com/sdatkinson/NeuralAmpModelerCore.git' $coreRev '' $true

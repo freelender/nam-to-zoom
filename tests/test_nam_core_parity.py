@@ -16,6 +16,7 @@ from test_kernel_optimization import State, find_clang
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "tools"))
 from nam2zoom.compact import geometry, pair_history_bytes, inspect
+from nam2zoom.platforms import renderer
 
 
 @unittest.skipUnless(os.environ.get("NAM2ZOOM_PARITY_MODEL")
@@ -47,7 +48,7 @@ class NamCoreParityTests(unittest.TestCase):
             samples[-2048:] = 0
             dry, rendered = root / "dry.wav", root / "core.wav"
             sf.write(dry, samples, 44100, subtype="FLOAT")
-            subprocess.run([str(ROOT / "reference/nam_a2/build-core-ninja/core_render.exe"),
+            subprocess.run([str(renderer()),
                             str(source), str(dry), str(rendered)], check=True, capture_output=True)
             expected, rate = sf.read(rendered, dtype="float32")
             self.assertEqual(rate, 44100)

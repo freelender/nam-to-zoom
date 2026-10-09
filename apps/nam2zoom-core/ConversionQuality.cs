@@ -3,9 +3,9 @@ using System.Text.Json;
 
 namespace Nam2ZoomDesktop;
 
-internal static class ConversionQuality
+public static class ConversionQuality
 {
-    internal static string? ReviewLine(string source, string label, JsonElement quality)
+    public static string? ReviewLine(string source, string label, JsonElement quality)
     {
         var esr = quality.GetProperty("esr").GetDouble();
         var limit = quality.GetProperty("max_esr").GetDouble();

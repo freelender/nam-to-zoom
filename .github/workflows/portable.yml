@@ -1,0 +1,95 @@
+name: Portable Windows and macOS
+on:
+  push:
+    branches: [main]
+    tags: ['v*']
+  pull_request:
+  workflow_dispatch:
+    inputs:
+      windows_cuda:
+        description: Bundle Windows CUDA 12.8 packages (larger download; NVIDIA driver required)
+        type: boolean
+        default: false
+permissions:
+  contents: read
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - rid: win-x64
+            runner: windows-2025
+          - rid: osx-arm64
+            runner: macos-15
+          - rid: osx-x64
+            runner: macos-15-intel
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 350
+    env:
+      PYTHONDONTWRITEBYTECODE: '1'
+      PYTHONUTF8: '1'
+      UV_PYTHON_INSTALL_DIR: ${{ github.workspace }}/.tooling/python-ci
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-dotnet@v6
+        with:
+          dotnet-version: '10.0.x'
+      - uses: astral-sh/setup-uv@bec219d24cd3e171d82865faccec33120bb574f4 # v10.1.0
+        with:
+          version: '0.8.22'
+      - name: Provision target-native relocatable Python
+        shell: pwsh
+        run: |
+          uv python install 3.12
+          if ($LASTEXITCODE -ne 0) { throw 'Python provisioning failed' }
+          $python = uv python find --managed-python 3.12
+          if ($LASTEXITCODE -ne 0) { throw 'Managed Python not found' }
+          "BUILD_PYTHON=$python" >> $env:GITHUB_ENV
+      - name: Build, bundle and verify portable app
+        shell: pwsh
+        env:
+          BUNDLE_CUDA: ${{ inputs.windows_cuda }}
+        run: |
+          $buildArgs = @('release/build_cross_platform.py', '--rid', '${{ matrix.rid }}', '--python', $env:BUILD_PYTHON)
+          if ('${{ matrix.rid }}' -eq 'win-x64' -and $env:BUNDLE_CUDA -eq 'true') { $buildArgs += '--cuda' }
+          & $env:BUILD_PYTHON @buildArgs
+          if ($LASTEXITCODE -ne 0) { throw 'Portable build/validation failed' }
+      - name: Run repository regressions and mock installer tests
+        shell: pwsh
+        run: |
+          & $env:BUILD_PYTHON release/run_ci_tests.py --rid '${{ matrix.rid }}'
+          if ($LASTEXITCODE -ne 0) { throw 'Regression tests failed' }
+      - uses: actions/upload-artifact@v7
+        with:
+          name: nam2zoom-${{ matrix.rid }}
+          path: |
+            dist/cross-platform/*.zip
+            dist/cross-platform/*.sha256
+          if-no-files-found: error
+          compression-level: 0
+  release:
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: build
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v8
+        with:
+          pattern: nam2zoom-*
+          merge-multiple: true
+          path: artifacts
+      - name: Publish the three verified packages
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          VERSION_TAG: ${{ github.ref_name }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(find artifacts -maxdepth 1 -name '*.zip' | wc -l)" -eq 3
+          if ! gh release view "$VERSION_TAG" >/dev/null 2>&1; then
+            gh release create "$VERSION_TAG" --verify-tag --title "nam2zoom $VERSION_TAG" --notes 'Portable cross-platform preview. macOS apps are unsigned/unnotarized; macOS USB-MIDI hardware verification is pending. See the included README for supported security approval and pedal safety instructions.'
+          fi
+          gh release upload "$VERSION_TAG" artifacts/*.zip artifacts/*.sha256

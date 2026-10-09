@@ -11,6 +11,7 @@ import subprocess
 from pathlib import Path
 
 from .compact import expected_parameters, geometry, pair_history_bytes, reserved_dsp_load, inspect
+from .platforms import venv_python
 
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -21,6 +22,12 @@ TOOLCHAIN = ROOT / ".tooling" / "cgt-8.3.1" / "ti-cgt-c6000_8.3.1"
 EFFECT_ID = "04001787"
 FILENAME = "N2ZBANK"
 MAX_MODELS = 10
+
+
+def max_models(profile):
+    geometry(profile)
+    return 3 if profile == "lite" else MAX_MODELS
+
 WORDS_PER_MODEL = expected_parameters(3)
 
 
@@ -43,8 +50,8 @@ def normalize_labels(paths: list[Path], labels: list[str] | None) -> list[str]:
 
 def load_models(paths: list[Path], labels: list[str] | None = None, *, profile="compact"):
     words = expected_parameters(3, profile)
-    if not 1 <= len(paths) <= MAX_MODELS:
-        raise ValueError("a bank needs 1-10 NAM files")
+    if not 1 <= len(paths) <= max_models(profile):
+        raise ValueError(f"a {profile} bank needs 1-{max_models(profile)} NAM files")
     names = normalize_labels(paths, labels)
     models = []
     for path, label in zip(paths, names):
@@ -66,7 +73,9 @@ def load_models(paths: list[Path], labels: list[str] | None = None, *, profile="
 
 def prepare_bank(models, output: Path, *, profile="compact") -> Path:
     words = expected_parameters(3, profile)
-    if not 1 <= len(models) <= MAX_MODELS or any(len(row[2]) != words * 4 for row in models):
+    if not 1 <= len(models) <= max_models(profile):
+        raise ValueError(f"a {profile} bank needs 1-{max_models(profile)} NAM files")
+    if any(len(row[2]) != words * 4 for row in models):
         raise ValueError(f"bank weights do not match {profile}")
     kernel = KERNEL if profile == "compact" else ROOT / "dsp/nam_a2_lite"
     if output.exists():
@@ -161,7 +170,7 @@ def build_bank(manifest: Path) -> Path:
         return fill_template(templates, manifest)
     if (ROOT / "runtime/portable.marker").exists():
         raise FileNotFoundError("Portable bank templates are missing; extract the complete ZIP again")
-    python = STOMPHACKS / ".venv" / "Scripts" / "python.exe"
+    python = venv_python(STOMPHACKS / ".venv")
     builder = STOMPHACKS / "tools" / "zd2_make_effect.py"
     compiler = TOOLCHAIN / "bin" / "cl6x.exe"
     for dependency in (python, builder, compiler):

@@ -10,7 +10,7 @@ from offline_effect_audit import audit_bytes
 from zd2 import compute_checksum, parse_zd2_bytes
 
 from .compact import expected_parameters, geometry, reserved_dsp_load
-from .bank import MAX_MODELS
+from .bank import max_models
 
 WORDS = expected_parameters(3)
 SOURCES = ("dsp/nam_a2_bank_zd2/bank_effect.c", "dsp/nam_a2_compact/compact_pair.c",
@@ -32,7 +32,7 @@ def fill_template(templates: Path, manifest: Path) -> Path:
     config = json.loads(manifest.read_text(encoding="ascii"))
     params = config["params"]
     count = config["const_blob"]["words"] // words
-    if not 1 <= count <= MAX_MODELS or config["const_blob"]["words"] != count * words:
+    if not 1 <= count <= max_models(profile) or config["const_blob"]["words"] != count * words:
         raise ValueError("invalid template model count")
     index = json.loads((templates / "index.json").read_text(encoding="ascii"))
     if index.get("format") != "nam2zoom.templates.v1":

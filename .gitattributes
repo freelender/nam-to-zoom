@@ -1,0 +1,14 @@
+# Preserve the exact source bytes recorded by the validated maintainer templates.
+dsp/nam_a2_bank_zd2/bank_effect.c text eol=crlf
+dsp/nam_a2_compact/compact_kernel.h text eol=lf
+dsp/nam_a2_compact/compact_pair.c text eol=lf
+dsp/nam_a2_compact/compact_pair.h text eol=lf
+dsp/nam_a2_lite/compact_kernel.h text eol=crlf
+dsp/nam_a2_lite/compact_pair.c text eol=crlf
+dsp/nam_a2_lite/compact_pair.h text eol=crlf
+*.patch text eol=lf
+*.py text eol=lf
+*.yml text eol=lf
+*.ZD2 binary
+*.ZIC binary
+*.wav binary

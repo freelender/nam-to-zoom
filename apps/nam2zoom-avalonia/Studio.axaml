@@ -1,0 +1,131 @@
+<Styles xmlns="https://github.com/avaloniaui" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+  <Styles.Resources>
+    <Color x:Key="SystemAccentColor">#4DA3FF</Color>
+    <SolidColorBrush x:Key="SystemControlHighlightAccentBrush">#4DA3FF</SolidColorBrush>
+    <ControlTheme x:Key="EpochArrowButton" TargetType="RepeatButton">
+      <Setter Property="Background" Value="Transparent" />
+      <Setter Property="BorderBrush" Value="#424E58" />
+      <Setter Property="BorderThickness" Value="1,0,0,0" />
+      <Setter Property="Template">
+        <ControlTemplate>
+          <Border Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}"
+                  BorderThickness="{TemplateBinding BorderThickness}">
+            <ContentPresenter Content="{TemplateBinding Content}"
+                              HorizontalAlignment="Stretch" VerticalAlignment="Stretch"
+                              HorizontalContentAlignment="Center" VerticalContentAlignment="Center" />
+          </Border>
+        </ControlTemplate>
+      </Setter>
+      <Style Selector="^:pointerover"><Setter Property="Background" Value="#243C50" /></Style>
+      <Style Selector="^:pressed"><Setter Property="Background" Value="#183653" /></Style>
+      <Style Selector="^:disabled"><Setter Property="Opacity" Value="0.4" /></Style>
+    </ControlTheme>
+  </Styles.Resources>
+  <Style Selector="Window">
+    <Setter Property="Background" Value="#111619" />
+    <Setter Property="Foreground" Value="#E9EDF2" />
+    <Setter Property="FontSize" Value="14" />
+  </Style>
+  <Style Selector="Button, ToggleButton.profile">
+    <Setter Property="Background" Value="#222A30" />
+    <Setter Property="Foreground" Value="#E9EDF2" />
+    <Setter Property="BorderBrush" Value="#3C464F" />
+    <Setter Property="BorderThickness" Value="1" />
+    <Setter Property="CornerRadius" Value="6" />
+    <Setter Property="Padding" Value="14,10" />
+    <Setter Property="MinHeight" Value="38" />
+    <Setter Property="Height" Value="40" />
+    <Setter Property="HorizontalContentAlignment" Value="Center" />
+  </Style>
+  <Style Selector="ToggleButton.profile:checked /template/ ContentPresenter#PART_ContentPresenter">
+    <Setter Property="Background" Value="#183653" />
+    <Setter Property="BorderBrush" Value="#4DA3FF" />
+    <Setter Property="BorderThickness" Value="1" />
+    <Setter Property="Foreground" Value="#4DA3FF" />
+  </Style>
+  <Style Selector="Button.primary">
+    <Setter Property="Background" Value="#4DA3FF" />
+    <Setter Property="Foreground" Value="#071A2D" />
+    <Setter Property="BorderBrush" Value="#76BAFF" />
+    <Setter Property="FontWeight" Value="SemiBold" />
+  </Style>
+  <Style Selector="Button.primary:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+    <Setter Property="Background" Value="#76BAFF" />
+    <Setter Property="Foreground" Value="#071A2D" />
+  </Style>
+  <Style Selector="Button.primary:pressed /template/ ContentPresenter#PART_ContentPresenter">
+    <Setter Property="Background" Value="#2D84D9" />
+    <Setter Property="Foreground" Value="#071A2D" />
+  </Style>
+  <Style Selector="TextBox, ComboBox, NumericUpDown">
+    <Setter Property="Background" Value="#11181D" />
+    <Setter Property="BorderBrush" Value="#424E58" />
+    <Setter Property="CornerRadius" Value="5" />
+    <Setter Property="MinHeight" Value="38" />
+  </Style>
+  <Style Selector="NumericUpDown.epochs">
+    <Setter Property="Template">
+      <ControlTemplate>
+        <Border Name="EpochBorder" Background="{TemplateBinding Background}"
+                BorderBrush="{TemplateBinding BorderBrush}" BorderThickness="1"
+                CornerRadius="5" ClipToBounds="True">
+          <Grid ColumnDefinitions="*,68">
+            <TextBox Name="PART_TextBox" Text="{TemplateBinding Text}"
+                     Background="Transparent" BorderThickness="0" CornerRadius="0"
+                     MinHeight="0" Height="38" Padding="12,0"
+                     VerticalContentAlignment="Center" />
+            <ButtonSpinner Name="PART_Spinner" Grid.Column="1" MinHeight="0" Height="38"
+                           Background="Transparent" BorderThickness="0" CornerRadius="0">
+              <ButtonSpinner.Template>
+                <ControlTemplate>
+                  <Grid ColumnDefinitions="*,*">
+                    <RepeatButton Name="PART_IncreaseButton" Theme="{StaticResource EpochArrowButton}" MinHeight="0" Height="38" Padding="0"
+                                  HorizontalContentAlignment="Center" VerticalContentAlignment="Center"
+                                  BorderThickness="1,0,0,0" BorderBrush="#424E58"
+                                  CornerRadius="0" Background="Transparent">
+                      <PathIcon Width="12" Height="6" Data="M 0,5 L 6,0 L 12,5 L 11,6 L 6,2 L 1,6 Z" />
+                    </RepeatButton>
+                    <RepeatButton Name="PART_DecreaseButton" Theme="{StaticResource EpochArrowButton}" Grid.Column="1" MinHeight="0" Height="38" Padding="0"
+                                  HorizontalContentAlignment="Center" VerticalContentAlignment="Center"
+                                  BorderThickness="1,0,0,0" BorderBrush="#424E58"
+                                  CornerRadius="0" Background="Transparent">
+                      <PathIcon Width="12" Height="6" Data="M 0,1 L 1,0 L 6,4 L 11,0 L 12,1 L 6,6 Z" />
+                    </RepeatButton>
+                  </Grid>
+                </ControlTemplate>
+              </ButtonSpinner.Template>
+            </ButtonSpinner>
+          </Grid>
+        </Border>
+      </ControlTemplate>
+    </Setter>
+  </Style>
+  <Style Selector="NumericUpDown.epochs:focus-within /template/ Border#EpochBorder">
+    <Setter Property="BorderBrush" Value="#4DA3FF" />
+  </Style>
+  <Style Selector="ListBox">
+    <Setter Property="Background" Value="Transparent" />
+    <Setter Property="BorderThickness" Value="0" />
+    <Setter Property="Padding" Value="0" />
+  </Style>
+  <Style Selector="ListBoxItem">
+    <Setter Property="Padding" Value="0" />
+    <Setter Property="MinHeight" Value="48" />
+    <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+    <Setter Property="CornerRadius" Value="0" />
+  </Style>
+  <Style Selector="ListBoxItem:selected /template/ ContentPresenter#PART_ContentPresenter">
+    <Setter Property="Background" Value="#183653" />
+    <Setter Property="BorderBrush" Value="#458DD1" />
+    <Setter Property="BorderThickness" Value="1" />
+  </Style>
+  <Style Selector="ListBoxItem /template/ ContentPresenter#PART_ContentPresenter">
+    <Setter Property="BorderThickness" Value="1" />
+  </Style>
+  <Style Selector="TextBlock.muted"><Setter Property="Foreground" Value="#9BA8B5" /></Style>
+  <Style Selector="TextBlock.heading">
+    <Setter Property="FontSize" Value="20" />
+    <Setter Property="FontWeight" Value="SemiBold" />
+  </Style>
+  <Style Selector="ToolTip"><Setter Property="MaxWidth" Value="420" /></Style>
+</Styles>

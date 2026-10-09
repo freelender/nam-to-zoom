@@ -1,0 +1,10 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+  </PropertyGroup>
+  <ItemGroup>
+    <EmbeddedResource Include="../nam2zoom-desktop/Assets/TRAINING_DI.wav" LogicalName="Nam2ZoomDesktop.TRAINING_DI.wav" />
+  </ItemGroup>
+</Project>

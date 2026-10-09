@@ -99,7 +99,7 @@ class ProductTests(unittest.TestCase):
             self.assertEqual(config["const_blob"]["words"], 6590)
             with self.assertRaisesRegex(ValueError, "1-10 NAM"):
                 load_models([source] * 11)
-            with self.assertRaisesRegex(ValueError, "bank weights"):
+            with self.assertRaisesRegex(ValueError, "1-10 NAM"):
                 prepare_bank(models + models[:1], root / "eleven")
             self.assertFalse((root / "eleven").exists())
 

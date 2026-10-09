@@ -157,7 +157,7 @@ class LiteTemplateTests(unittest.TestCase):
         from zd2 import parse_zd2_bytes
         templates = Path(os.environ["NAM2ZOOM_LITE_TEMPLATE_DIR"])
         index = json.loads((templates / "index.json").read_text())
-        for count in range(1, 11):
+        for count in range(1, 4):
             with self.subTest(count=count), tempfile.TemporaryDirectory() as temporary:
                 root = Path(temporary)
                 payload = struct.pack("<1871f", *([.01] * 1871))

@@ -1,0 +1,29 @@
+{
+  "format": "nam2zoom.templates.v1",
+  "banks": {
+    "1": {
+      "sha256": "36100eb60540313ce5604dada50cb70729904b43b7a7ac27bce5c3e0a658b1ef",
+      "weights_offset": 13989,
+      "labels_offset": 21477
+    },
+    "2": {
+      "sha256": "9951a7d8a5eb4e8e998b42f5d9d06187ebdf547d93c26b959efb0790975e20e3",
+      "weights_offset": 14021,
+      "labels_offset": 28989
+    },
+    "3": {
+      "sha256": "ed103aea16ed01141fb840f19bd99e4483e024b84fe19656d69f1c5ac4540b23",
+      "weights_offset": 14117,
+      "labels_offset": 36573
+    }
+  },
+  "model_profile": "lite",
+  "reserved_dsp_load": 270,
+  "dsp_source_sha256": {
+    "dsp/nam_a2_bank_zd2/bank_effect.c": "0638f1d0fa9eac48e84ee4e7bd52d79c5af845d3b34e5b0ecdf921f663f6d355",
+    "dsp/nam_a2_lite/compact_pair.c": "cc2826e91010813f8a00349a13757847facb372fc81084ab3f7a4a5a77a8aac8",
+    "dsp/nam_a2_lite/compact_pair.h": "c0df83498da23c0fa957dc2a0f931a09c161338d56dbc637cd3458ceee352234",
+    "dsp/nam_a2_lite/compact_kernel.h": "c6bbd0db657c3b819c97cd0d8ea575dd4aa07d2253aedc921b4a912a452af5e2"
+  },
+  "icon_sha256": "5a8e36db1d3dcd2d49ce7b77e30c362017b6856fb3cd0284b2c2f6afa516baf8"
+}

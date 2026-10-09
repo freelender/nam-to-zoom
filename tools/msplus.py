@@ -14,11 +14,12 @@ from msplus_midi import (
     MidiTimeout,
     MidiUnavailable,
     ReadOnlyMSPlus,
+    PORT_MARKERS,
     list_ports,
     open_default_device,
 )
 from msplus_protocol import MS_PLUS_DEVICE, ProtocolError
-from nam2zoom.devices import require_supported_device
+from nam2zoom.devices import require_supported_device, identify_profile
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -32,6 +33,7 @@ def build_parser() -> argparse.ArgumentParser:
     subparsers = parser.add_subparsers(dest="command", required=True)
     subparsers.add_parser("ports", help="list MIDI input and output ports")
     subparsers.add_parser("identify", help="request the device identity")
+    subparsers.add_parser("probe", help="detect one supported pedal without changing device mode (JSON)")
     subparsers.add_parser("patch-info", help="show patch count and size")
 
     patch = subparsers.add_parser("download-patch", help="download one patch")
@@ -57,6 +59,9 @@ def build_parser() -> argparse.ArgumentParser:
 
 def main(argv: list[str] | None = None) -> int:
     args = build_parser().parse_args(argv)
+    if args.command == "probe":
+        print(json.dumps(probe_device(args.timeout)))
+        return 0
     try:
         if args.command == "ports":
             return show_ports()
@@ -68,6 +73,29 @@ def main(argv: list[str] | None = None) -> int:
     except (MidiTimeout, MidiUnavailable, ProtocolError, OSError, ValueError) as exc:
         print(f"error: {exc}", file=sys.stderr)
         return 2
+
+
+def probe_device(timeout: float = 0.75) -> dict[str, Any]:
+    """Only enumerate Zoom ports and request identity; never enter PC mode."""
+    try:
+        inputs, outputs = list_ports()
+        inputs = [name for name in inputs if any(marker in name for marker in PORT_MARKERS)]
+        outputs = [name for name in outputs if any(marker in name for marker in PORT_MARKERS)]
+        if not inputs and not outputs:
+            return {"status": "absent", "message": "No pedal connected"}
+        if len(inputs) != 1 or len(outputs) != 1:
+            return {"status": "ambiguous", "message": "Connect one Zoom pedal"}
+        with open_default_device(inputs[0], outputs[0], timeout=timeout) as transport:
+            with ReadOnlyMSPlus(transport) as pedal:
+                identity = pedal.identify()
+        profile = identify_profile(identity.family_code, identity.model_number, identity.version)
+        if profile is None:
+            return {"status": "unsupported", "message": "Unsupported pedal / firmware",
+                    "firmware": identity.version}
+        return {"status": "connected", "message": f"{profile.name} · {identity.version}",
+                "hardware_tested": profile.bank_hardware_tested}
+    except (MidiTimeout, MidiUnavailable, ProtocolError, OSError, ValueError, RuntimeError) as exc:
+        return {"status": "unavailable", "message": "Pedal unavailable", "detail": str(exc)}
 
 
 def show_ports() -> int:

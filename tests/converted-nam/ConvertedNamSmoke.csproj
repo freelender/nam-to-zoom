@@ -5,6 +5,6 @@
     <ImplicitUsings>enable</ImplicitUsings>
   </PropertyGroup>
   <ItemGroup>
-    <Compile Include="../../apps/nam2zoom-desktop/ConvertedNam.cs" Link="ConvertedNam.cs" />
+    <Compile Include="../../apps/nam2zoom-core/ConvertedNam.cs" Link="ConvertedNam.cs" />
   </ItemGroup>
 </Project>

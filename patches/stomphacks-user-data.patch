@@ -1,0 +1,10 @@
+diff --git a/tools-pedal/pedal_diy.py b/tools-pedal/pedal_diy.py
+--- a/tools-pedal/pedal_diy.py
++++ b/tools-pedal/pedal_diy.py
+@@ -95,5 +95,5 @@
+ STOCK_GLOB = os.path.join(REPO_ROOT, "effects", "Zoom-*", "*.ZD2")
+ STOCK_ZIC_GLOB = os.path.join(REPO_ROOT, "effects", "Zoom-*", "*.ZIC")
+-LOGFILE = os.path.join(REPO_ROOT, "tools-pedal", "pedal_diy.log")
++LOGFILE = os.environ.get("NAM2ZOOM_PEDAL_LOG", os.path.join(REPO_ROOT, "tools-pedal", "pedal_diy.log"))
+ 
+ ID_OFF = 96            # uint32le effect id

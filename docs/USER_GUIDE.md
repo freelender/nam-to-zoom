@@ -104,3 +104,5 @@ The default seven-control effect uses the two-sample kernel reported working on 
 - If CUDA is unavailable, the downloaded GPU build can still run on CPU; update the NVIDIA driver separately if appropriate for your hardware.
 - Close other programs using the Zoom MIDI port if connection checks fail. Confirm USB connection and supported firmware: 1.40 on MS-50G+, or 1.20 on MS-70CDR+ or MS-60B+.
 - Audio conversion quality and GPU speed vary by model and PC. More epochs are not a guarantee of a closer match.
+
+Lite banks support at most **3 NAM models**; Compact banks support at most **10**. Only the selected model runs. This model-count limit does not resolve the reported Lite saved-patch/startup failure; keep Lite patches unsaved.

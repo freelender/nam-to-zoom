@@ -12,7 +12,7 @@ sys.path.insert(0, str(ROOT / "tools"))
 
 from elf32 import parse_elf32
 from zd2 import parse_zd2_bytes
-from nam2zoom.bank import build_bank, prepare_bank, MAX_MODELS
+from nam2zoom.bank import build_bank, prepare_bank, max_models
 from nam2zoom.compact import expected_parameters, reserved_dsp_load
 from nam2zoom.template import sources, digest
 
@@ -32,7 +32,7 @@ def main():
              "model_profile": args.profile,
              "reserved_dsp_load": reserved_dsp_load(args.profile),
              "dsp_source_sha256": {name: digest((ROOT / name).read_bytes()) for name in sources(args.profile)}}
-    for count in range(1, MAX_MODELS + 1):
+    for count in range(1, max_models(args.profile) + 1):
         models = [(ROOT / "release/create_templates.py", f"SLT{i+1}",
                    bytes(words * 4), "zero-weight-release-template")
                   for i in range(count)]
