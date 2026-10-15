@@ -18,6 +18,7 @@ they are not claimed hardware-tested.
 | **MS-50G+**   | **Supported** - tested and working |
 | **MS-70CDR+** | **Supported** - tested and working |
 | **MS-60B+**   | **Experimental** - awaiting N2Z Bank hardware testing |
+| **G11**       | **Community-tested** - manual conversion only; the app cannot install it ([report](docs/ZOOM_G11.md)) |
 
 _More devices to come._
 
@@ -108,6 +109,9 @@ user model weights are never distributed.
   firmware 1.20. N2Z Bank has not yet been hardware-tested on MS-60B+.
   Device identity is detected
   automatically; other models and firmware versions are refused.
+- Zoom G11 firmware 2.10 ran an N2Z Bank after a manual container change,
+  but the app refuses the G11 and must not write to it: the G11 rejects
+  the MS Plus file-session sequence. See the [G11 report](docs/ZOOM_G11.md).
 - Compact declares load 150. This is a patch-admission value, not measured DSP utilization.
 - Custom effects can cause slowdown, crackling, overflow, freezing, or
   permanent device failure. Readback verification does not prove safe real-time
