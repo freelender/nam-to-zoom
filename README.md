@@ -100,6 +100,13 @@ bundles the self-contained GUI, Python runtimes, renderer, backend tools, and
 license notices, then writes a portable ZIP under `dist`. The TI compiler and
 user model weights are never distributed.
 
+## Linux
+
+An experimental Linux port (source checkout, CPU-only training, Compact profile)
+is available and was verified against a Zoom MS-60B+ firmware 1.20. See
+[docs/LINUX.md](docs/LINUX.md) for prerequisites, setup, the smoke tests and
+what is verified so far.
+
 ## Compatibility And Safety
 
 - Windows 10/11 x64.

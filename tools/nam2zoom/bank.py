@@ -11,7 +11,7 @@ import subprocess
 from pathlib import Path
 
 from .compact import expected_parameters, geometry, pair_history_bytes, reserved_dsp_load, inspect, require_enabled_profile
-from .platforms import venv_python
+from .platforms import executable, venv_python
 
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -173,7 +173,7 @@ def build_bank(manifest: Path) -> Path:
         raise FileNotFoundError("Portable bank templates are missing; extract the complete ZIP again")
     python = venv_python(STOMPHACKS / ".venv")
     builder = STOMPHACKS / "tools" / "zd2_make_effect.py"
-    compiler = TOOLCHAIN / "bin" / "cl6x.exe"
+    compiler = TOOLCHAIN / "bin" / executable("cl6x")
     for dependency in (python, builder, compiler):
         if not dependency.is_file():
             raise FileNotFoundError(f"missing build dependency: {dependency}")

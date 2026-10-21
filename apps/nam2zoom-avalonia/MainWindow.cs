@@ -276,7 +276,9 @@ public sealed partial class MainWindow : Window
         + "A2 Lite is disabled pending further testing. MS-60B+ is experimental; all macOS hardware verification is pending. "
         + "Saved-patch and reboot behavior of this build is unverified.";
     private static void OpenFolder(string path) => Process.Start(new ProcessStartInfo(
-        OperatingSystem.IsMacOS() ? "/usr/bin/open" : "explorer.exe") { UseShellExecute = false, ArgumentList = { path } });
+        OperatingSystem.IsMacOS() ? "/usr/bin/open"
+        : OperatingSystem.IsWindows() ? "explorer.exe" : "xdg-open")
+        { UseShellExecute = false, ArgumentList = { path } });
     private async Task<bool> Dialog(string title, string message, bool question)
     {
         var window = new Window { Title = title, Width = 700, MaxHeight = 650, SizeToContent = SizeToContent.Height,

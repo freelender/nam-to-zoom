@@ -312,7 +312,7 @@ public sealed partial class MainWindow
 
         var actionBody = new StackPanel { Spacing = 8, Children = { Heading("Build & install"), actions,
 
-            Text("Firmware: MS-50G+ 1.40 • MS-70CDR+ 1.20 • MS-60B+ 1.20 experimental. macOS USB-MIDI verification pending.", 12, true) } };
+            Text(OperatingSystem.IsLinux() ? "Firmware: MS-50G+ 1.40 • MS-70CDR+ 1.20 • MS-60B+ 1.20 experimental. USB-MIDI verified on Linux with a Zoom MS-60B+ (fw 1.20)." : "Firmware: MS-50G+ 1.40 • MS-70CDR+ 1.20 • MS-60B+ 1.20 experimental. macOS USB-MIDI verification pending.", 12, true) } };
 
         var actionCard = Card(actionBody);
 

@@ -14,9 +14,26 @@ internal static class Program
             var paths = new AppPaths();
             var service = new BackendService(paths);
             paths.TrainingDi();
-            var result = service.ExecuteAsync(paths.Python, ["-B", "-c",
-                "import nam.cli, torch, numpy, scipy, soundfile, mido, rtmidi, construct; from nam2zoom.template import fill_template; print('Bundled runtime imports OK')"], Console.WriteLine).GetAwaiter().GetResult();
-            result.RequireSuccess();
+            // A portable bundle ships one runtime holding every package
+            // (release/build_cross_platform.py), so the original single check still
+            // applies there. A source checkout has no runtime/ directory: AppPaths
+            // then selects the two dev venvs, and neither passes the full list
+            // alone, so each interpreter gets its own import set (docs/plans/
+            // 06a-smoke-test-linux.md).
+            if (File.Exists(Path.Combine(paths.Resources, "runtime", "portable.marker"))) {
+                var result = service.ExecuteAsync(paths.Python, ["-B", "-c",
+                    "import nam.cli, torch, numpy, scipy, soundfile, mido, rtmidi, construct; from nam2zoom.template import fill_template; print('Bundled runtime imports OK')"], Console.WriteLine).GetAwaiter().GetResult();
+                result.RequireSuccess();
+                return 0;
+            }
+            Console.WriteLine("Smoke test: checking backend runtime");
+            var backendResult = service.ExecuteAsync(paths.Python, ["-B", "-c",
+                "import mido, rtmidi, construct; from nam2zoom.template import fill_template; print('Backend runtime imports OK')"], Console.WriteLine).GetAwaiter().GetResult();
+            backendResult.RequireSuccess();
+            Console.WriteLine("Smoke test: checking training runtime");
+            var trainerResult = service.ExecuteAsync(paths.Trainer, ["-B", "-c",
+                "import nam.cli, torch, numpy, scipy, soundfile; print('Training runtime imports OK')"], Console.WriteLine).GetAwaiter().GetResult();
+            trainerResult.RequireSuccess();
             return 0;
         }
         App.SmokeGui = args.Contains("--gui-smoke-test");
