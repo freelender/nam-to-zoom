@@ -25,7 +25,9 @@ class BankCompatibilityTests(unittest.TestCase):
             with self.subTest(effect_id=effect_id), \
                  patch.object(pedal_diy, "read_zd2", return_value=(effect_id, "N2Z Bank")):
                 self.assertTrue(pedal_diy.classify(deploy.BANK_NAME)[0])
-        self.assertFalse(pedal_diy.is_diy_id(0x04001788))
+        # Upstream now recognizes the full DIY bands; nam2zoom still gates
+        # its own banks by exact slot identity in deploy/identity.py.
+        self.assertTrue(pedal_diy.is_diy_id(0x04001788))
         self.assertFalse(pedal_diy.is_diy_id(0x04011787))
 
     def test_installer_still_refuses_stock_collisions(self):
@@ -77,7 +79,7 @@ class BankCompatibilityTests(unittest.TestCase):
                      effect_id=effect_id, name=name)):
                 if mode == "backup":
                     result = deploy.plan_backup(None, None, backup, session / "current")
-                    stock_patches.assert_called_once_with(session / "current", backup, profile.patch_count)
+                    stock_patches.assert_called_once_with(session / "current", backup, profile.patch_count, {0x04001387, 0x04001397})
                     return result
                 result = deploy.plan_live(None, None, session, session / "current")[0]
                 self.assertEqual(stock_patch.call_count, profile.patch_count + 1)

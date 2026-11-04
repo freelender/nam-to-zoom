@@ -41,22 +41,21 @@ public sealed class BankService(AppPaths paths, BackendService backend)
     }
 
     public static int MaxModels(string profile) => profile switch {
-        "compact" => 10,
-        "lite" => throw new InvalidDataException("A2 Lite is disabled pending further testing; use Compact."),
+        "compact" => 10, "lite" => 5,
         _ => throw new InvalidDataException("Unknown bank profile.")
     };
 
     public static void Validate(IReadOnlyList<ModelSelection> models, string? profile = null)
     {
         var selectedProfile = profile ?? models.FirstOrDefault()?.ModelProfile ?? "compact";
-        var maximum = MaxModels(selectedProfile);
-        if (models.Any(m => m.ModelProfile != "compact"))
-            throw new InvalidDataException("Only Compact model lists are enabled; A2 Lite is disabled pending further testing.");
+        var maximum = MaxModels(selectedProfile);
+        if (models.Any(m => m.ModelProfile != selectedProfile))
+            throw new InvalidDataException("All list entries must use the selected Compact/Lite profile.");
         if (models.Count < 1 || models.Count > maximum)
             throw new InvalidDataException($"{selectedProfile} banks require 1–{maximum} NAM models.");
-        if (models.Any(m => !Regex.IsMatch(m.Label, "^[A-Za-z0-9_-]{1,5}$"))
+        if (models.Any(m => !Regex.IsMatch(m.Label, "^[A-Za-z0-9_-]{1,6}$"))
             || models.Select(m => m.Label.ToUpperInvariant()).Distinct().Count() != models.Count)
-            throw new InvalidDataException("Use unique 1–5 character labels (A–Z, 0–9, - or _).");
+            throw new InvalidDataException("Use unique 1–6 character labels (A–Z, 0–9, - or _).");
     }
 
     public async Task<BankResult?> BuildAsync(IReadOnlyList<ModelSelection> models, string parent,

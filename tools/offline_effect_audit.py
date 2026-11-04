@@ -74,7 +74,7 @@ def audit_bytes(
         errors.append("ZD2 chunk sequence differs from the reviewed MS Plus corpus")
     if zd2.group != (zd2.effect_id >> 24):
         errors.append("effect ID group byte does not match ZD2 group")
-    if not 0x04001400 <= zd2.effect_id <= 0x040017FF:
+    if not (0x04001400 <= zd2.effect_id <= 0x040017FF or zd2.effect_id in (0x04001387, 0x04001397)):
         errors.append(f"effect ID 0x{zd2.effect_id:08x} is outside the local PREAMP NAM range")
     if not zd2.name or len(zd2.name) > 10:
         errors.append("effect name is empty or longer than 10 characters")

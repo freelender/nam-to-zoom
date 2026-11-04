@@ -46,7 +46,7 @@ SUPPORTED_DEVICES = (
         model_number=0x0027,
         firmware="1.20",
         patch_count=100,
-        bank_hardware_tested=False,
+        bank_hardware_tested=True,
     ),
 )
 

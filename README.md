@@ -1,145 +1,58 @@
 # nam2zoom
 
-Cross-platform migration preview: the new .NET 10 Avalonia frontend lives in
-`apps/nam2zoom-avalonia`; the original WinForms app is preserved. See the
-[repository audit and migration plan](docs/CROSS_PLATFORM.md) and
-[portable Windows/macOS instructions](docs/PORTABLE.md). The
-`Portable Windows and macOS` Actions workflow builds two target-native ZIPs
-for Windows x64 and Apple Silicon Macs. Intel Mac builds are temporarily disabled
-because compiling PyTorch 2.11.0 from source takes too long. The workflow
-publishes matching `vX.Y.Z` tags after both targets pass validation.
-macOS builds and all macOS USB-MIDI operations require CI/manual validation;
-they are not claimed hardware-tested.
+Retrain Neural Amp Modeler captures into **Zoom-ready A2 Lite NAM files at
+44.1 kHz**. Training runs locally on Windows and macOS, with optional NVIDIA
+GPU acceleration on Windows.
 
-## Supported Devices
+## Retraining
 
-| Zoom pedal    | Status                             |
-| :------------ | :--------------------------------- |
-| **MS-50G+**   | **Supported** - tested and working |
-| **MS-70CDR+** | **Supported** - tested and working |
-| **MS-60B+**   | **Experimental** - awaiting N2Z Bank hardware testing |
+Add NAM files or a folder, choose the training device and epoch count, then
+select **Retrain & export NAMs**. Files are processed independently. Compatible
+A2 Lite 44.1 kHz models are exported directly; other supported captures are
+rendered and retrained. Quality checks and an A/B preview help assess the result.
 
-_More devices to come._
+Exports go into **Converted_NAM**, beside `nam2zoom.exe` on Windows or
+`nam2zoom.app` on macOS, with names such as `MyAmp-441-resampled.nam`.
+They can be shared and used without retraining again.
+Only redistribute models you have permission to share.
 
----
+Use [the NAM loader at sym.bios.is](https://sym.bios.is/?open=nam) to load exported NAMs
+onto compatible Zoom pedals, or build a local effect in the app.
+sym.bios.is does not host or share retrained NAM models.
 
-nam2zoom converts one to ten Neural Amp Modeler (`.nam`) files into a single
-Zoom MS Plus custom effect named **N2Z Bank**. The pedal effect exposes
-**Model, Bass, Mid, Treble, Vol, Input,** and **Mix** controls; only the
-selected model runs at a time.
+## Build effect
 
-**Compact** is the only enabled bank profile. A2 Lite is disabled pending further testing.
-Compact runs at 44.1 kHz with three channels and a two-sample kernel.
-Compact uses the pedal-tested 14-layer network. The five-model, seven-control
-build was reported working on MS-50G+ firmware 1.40 on 2026-09-29. N2Z Bank
-has also been tested and confirmed working on MS-70CDR+. This is still a
-preview release: new models, devices, saved patches,
-and effect chains require their own checks before you trust them on hardware.
+Package one to five retrained models into each of three independent, named NAM effect slots, then install or remove the selected slot
+through **Build effect**. Building works offline; installation includes device
+checks, backups and readback verification.
 
-## Compact
+| Parameter page | Controls                 |
+| -------------- | ------------------------ |
+| 1              | Model, Gain, Volume, Mix |
+| 2              | Bass, Middle, Treble     |
 
-Compact uses a 14-layer, 3-channel network at 44.1 kHz, with 659 weights per
-model and a declared DSP load of 150 raw. Banks support one to ten models.
-Compatible Compact NAMs package directly; other supported models require
-adaptation. Converted models are saved under `Converted_NAM/Compact`.
-Existing Lite lists cannot be loaded while Lite is disabled. Lite source,
-caches and exports are preserved for future testing.
-See the [User Guide](docs/USER_GUIDE.md) for conversion and installation details.
+**Full** runs the network at 44.1 kHz. **Compact** runs it at 33.075 kHz with
+filtered 44.1 kHz I/O, trading some fidelity for lower DSP demand. Compact builds
+have a small `compact` label on the amp artwork. Retraining always exports the
+same full A2 Lite 44.1 kHz format, regardless of build mode.
 
-#### N2Z Bank effect location
+## Getting started
 
-![n2z bank location in pedal](https://github.com/freelender/nam-to-zoom/blob/main/git-assets/n2z-location.gif?raw=true)
+Extract the complete portable package into a writable folder and run
+`nam2zoom.exe` or open `nam2zoom.app`. Keep the bundled files together. No pedal
+connection is needed for retraining.
 
-## Choose Your Path
+- [User guide](docs/USER_GUIDE.md): retraining, sharing and pedal installation.
+- [Development](docs/DEVELOPMENT.md): source builds, tests and packaging.
+- [Changelog](CHANGELOG.md): release changes.
 
-| Goal              | Start here                                                                                        | Tools needed                                |
-| ----------------- | ------------------------------------------------------------------------------------------------- | ------------------------------------------- |
-| Use the app       | Download the Windows x64 portable ZIP from Releases and read the [User Guide](docs/USER_GUIDE.md) | None beyond the packaged app                |
-| Develop or audit  | Clone this repository and read the [Development Guide](docs/DEVELOPMENT.md)                       | .NET SDK, Git, CMake, C++ tools, uv, TI CGT |
-| Package a release | Complete developer setup, then run `.\release\build-portable.ps1`                                 | Full developer setup                        |
+The current desktop app is in `apps/nam2zoom-avalonia`. The repository also
+contains the Python backend, pedal DSP and the earlier WinForms frontend.
 
-## User Workflow
-
-Use the release ZIP, not GitHub's source-code ZIP. Extract the whole folder to
-a writable location and run `nam2zoom-desktop.exe`; do not copy the EXE away
-from its bundled files.
-
-Drop in one to ten NAM files, choose their order, set unique five-character
-pedal labels, optionally add mono cab IR WAVs,
-then build and preview. Direct
-compatible NAMs package immediately. Other supported NAMs are adapted on the
-PC into the fixed pedal network; the app asks before downloading training
-packages and offers CPU or NVIDIA CUDA setup. The source NAM and IR files are
-not modified.
-
-When installing, the app replaces the complete N2Z Bank effect on the pedal.
-It does not load separate model files at runtime. Read the full
-[user workflow and safety checks](docs/USER_GUIDE.md) before writing anything
-to hardware.
-
-## Contributor Workflow
-
-Run `setup.ps1` only from a source checkout after installing the prerequisites
-listed in [Development](docs/DEVELOPMENT.md). Setup provisions ignored local
-tooling under `.tooling`, builds the native renderer and desktop app, and runs
-offline tests. It does not write to a pedal.
-
-The repository intentionally does not include generated toolchains, backups,
-portable ZIPs, generated release templates, user NAM models, or compiled pedal
-artifacts. Local outputs live under ignored paths such as `.tooling`, `Backup`,
-`dist`, `release/templates`, and `n2z-bank-*`.
-
-Release packaging is maintainer-only:
-
-```powershell
-.\release\build-portable.ps1
-```
-
-The script generates zero-weight templates with the maintainer's TI compiler,
-bundles the self-contained GUI, Python runtimes, renderer, backend tools, and
-license notices, then writes a portable ZIP under `dist`. The TI compiler and
-user model weights are never distributed.
-
-## Compatibility And Safety
-
-- Windows 10/11 x64.
-- Pedal installation supports Zoom MS-50G+ firmware 1.40,
-  Zoom MS-70CDR+ firmware 1.20, and experimentally Zoom MS-60B+
-  firmware 1.20. N2Z Bank has not yet been hardware-tested on MS-60B+.
-  Device identity is detected
-  automatically; other models and firmware versions are refused.
-- Compact declares load 150. This is a patch-admission value, not measured DSP utilization.
-- Custom effects can cause slowdown, crackling, overflow, freezing, or
-  permanent device failure. Readback verification does not prove safe real-time
-  behavior.
-- Disable autosave, select a stock patch, and clear saved custom/N2Z patches
-  before replacing or removing the effect.
-- Keep USB and power connected during transfers. Preserve logs and backups
-  after any failed write and do not blindly retry.
-- The earlier six-control build passed one saved six-effect chain with
-  LowPassFL; replacing LowPassFL with FD B-MAN caused PROCESS OVERFLOW on N2Z
-  after reboot. New binaries and combinations need their own tests.
-
-## Support
-
-If you would like to support my work, you can leave an optional tip. Donations
-will help fund additional pedals, audio gear, and other equipment needed to
-test and improve nam2zoom. They are appreciated, but never required to use
-the project.
-
-[![Support my work](https://img.shields.io/badge/Support_my_work-Donate-22a06b?style=for-the-badge)](https://streamelements.com/fret_lex/tip)
-
-## Acknowledgements
-
-Special thanks to [Thomas Hammer](https://github.com/thammer) for his work on
-[zoom-explorer](https://github.com/thammer/zoom-explorer) and
-[stomphacks](https://github.com/thammer/stomphacks). His research into the
-Zoom MS Plus pedal protocol and custom-effect tooling provided an important
-foundation for this project.
+[![XERJ Corpus Hub contributor](https://hub.xerj.org/contributors/freelender/badge.svg)](https://hub.xerj.org/contributors/freelender)
 
 ## License
 
-Project code is released under the [MIT License](LICENSE), copyright 2026
-Aleksandar Vukasinovic. Third-party dependencies keep their own licenses, and
-portable packages include notices. User-selected NAM models are not part of
-this project or its releases.
+[MIT](LICENSE), copyright 2026 Aleksandar Vukasinovic. Third-party dependencies
+retain their licenses and notices. NAM captures and trained model weights are
+not distributed with the app.

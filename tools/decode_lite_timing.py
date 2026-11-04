@@ -10,17 +10,23 @@ import soundfile as sf
 
 SYNC = 0x4E32545A
 WORDS = 19
+PROFILE_WORDS = 27
 KEYS = ("sync", "version", "variant", "status", "blocks", "frames",
         "idle_period_mean", "idle_period_min", "idle_period_max", "timer_read_ticks",
         "callback_mean", "callback_min", "callback_max", "loaded_period_mean",
         "loaded_period_min", "loaded_period_max", "warmup_blocks", "model_tag", "crc32")
+COMPONENTS = ("neural", "downsample", "upsample", "postprocess")
+PROFILE_KEYS = KEYS[:-1] + tuple(f"{stage}_{stat}" for stage in COMPONENTS for stat in ("mean", "max")) + ("crc32",)
 STATUSES = {0: "ok", 1: "timer unavailable", 2: "network reset/recovery during measurement",
             3: "warmup did not complete", 4: "controls changed: restore defaults and bypass/on"}
 
 
 def packet_bytes(words):
     """Reference wire format: little-endian words, bits within each word MSB first."""
-    prefix = struct.pack("<18I", *words[:18])
+    count = PROFILE_WORDS if words[1] == 2 else WORDS
+    if len(words) != count - 1:
+        raise ValueError("wrong diagnostic packet length")
+    prefix = struct.pack(f"<{len(words)}I", *words)
     return prefix + struct.pack("<I", zlib.crc32(prefix))
 
 
@@ -29,17 +35,20 @@ def valid_packets(bits):
     found = []
     start = bits.find(sync_bits)
     while start >= 0:
-        candidate = bits[start:start + WORDS * 32]
-        if len(candidate) == WORDS * 32 and "x" not in candidate:
+        header = bits[start:start+64]
+        version = int(header[32:64],2) if len(header)==64 and 'x' not in header else 0
+        count = PROFILE_WORDS if version == 2 else WORDS
+        candidate = bits[start:start + count * 32]
+        if version in (1,2) and len(candidate) == count * 32 and "x" not in candidate:
             words = [int(candidate[i:i + 32], 2) for i in range(0, len(candidate), 32)]
-            raw = struct.pack("<19I", *words)
-            if zlib.crc32(raw[:-4]) == words[-1] and words[1] == 1:
+            raw = struct.pack(f"<{count}I", *words)
+            if zlib.crc32(raw[:-4]) == words[-1]:
                 found.append(tuple(words))
         start = bits.find(sync_bits, start + 1)
     return found
 
 
-def channel_packets(samples, rate):
+def channel_packets(samples, rate, packet_decoder=None):
     # 1 ms RMS windows locate 10 ms tones, with 10 ms gaps. Relative threshold
     # accepts interface gain changes; CRC rejects noise/music and missing bits.
     window = max(1, round(rate * .001))
@@ -68,7 +77,7 @@ def channel_packets(samples, rate):
                               for f in frequency * np.array([.98, 1., 1.02])))
         low, high = sorted(energy)
         bits.append(str(int(energy[1] > energy[0])) if high > 4 * max(low, 1e-20) else "x")
-    return valid_packets("".join(bits))
+    return (packet_decoder or valid_packets)("".join(bits))
 
 
 def decode(path):
@@ -86,8 +95,8 @@ def decode(path):
     if len(unique) != 1:
         raise ValueError("recording contains conflicting reports; use a separate recording for each run")
     packet = unique.pop()
-    result = dict(zip(KEYS, packet))
-    result.update(variant_name={0: "original", 1: "optimized"}.get(packet[2], "unknown"),
+    result = dict(zip(PROFILE_KEYS if packet[1] == 2 else KEYS, packet))
+    result.update(variant_name=({0: "full", 1: "compact"} if packet[1]==2 else {0: "original", 1: "optimized"}).get(packet[2], "unknown"),
                   status_text=STATUSES.get(packet[3], "unknown status"),
                   recording=str(Path(path).resolve()), sample_rate=rate,
                   channels_decoded=[i + 1 for i, _ in reports],
@@ -102,6 +111,16 @@ def decode(path):
             raise ValueError("invalid idle cadence")
         result["mean_to_idle_period_ratio"] = result["callback_mean"] / result["idle_period_mean"]
         result["worst_to_idle_period_ratio"] = result["callback_max"] / result["idle_period_mean"]
+        if packet[1] == 2:
+            for component in COMPONENTS:
+                if not 0 <= result[component+"_mean"] <= result[component+"_max"]:
+                    raise ValueError("invalid component timing")
+            measured = sum(result[component+"_mean"] for component in COMPONENTS)
+            if measured > result['callback_mean']:
+                raise ValueError("component means exceed callback time")
+            result['unattributed_mean_ticks'] = result['callback_mean']-measured
+            result['component_share_of_callback_percent'] = {
+                component:100*result[component+'_mean']/result['callback_mean'] for component in COMPONENTS}
     return result
 
 
@@ -133,6 +152,9 @@ def main():
             print(f'Callback clock ticks: mean {result["callback_mean"]:,}; min {result["callback_min"]:,}; observed max {result["callback_max"]:,}')
             print(f'Idle callback period: {result["idle_period_mean"]:,} ticks; loaded: {result["loaded_period_mean"]:,} ticks')
             print("These are diagnostic elapsed times, not a firmware DSP-load percentage or saved-patch safety result.")
+            if result['version']==2:
+                for stage in COMPONENTS:
+                    print(f"{stage}: mean {result[stage+'_mean']:,} ticks; observed max {result[stage+'_max']:,}")
         if result["clipped"]:
             print("Recording clipped; reduce interface gain and repeat before comparing.")
         if args.compare:

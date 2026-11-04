@@ -15,6 +15,16 @@
       "sha256": "ed103aea16ed01141fb840f19bd99e4483e024b84fe19656d69f1c5ac4540b23",
       "weights_offset": 14117,
       "labels_offset": 36573
+    },
+    "4": {
+      "sha256": "af10afb00bf5bd7e85feb761246733c3b3b73b55ad11dbefe274eb7dc0e5f31a",
+      "weights_offset": 14117,
+      "labels_offset": 44053
+    },
+    "5": {
+      "sha256": "f233db191efafc9f70b9694217b91e76a86dcf7a8acb0a290cc998c6ff0a6021",
+      "weights_offset": 14117,
+      "labels_offset": 51541
     }
   },
   "model_profile": "lite",

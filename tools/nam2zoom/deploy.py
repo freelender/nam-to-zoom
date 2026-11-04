@@ -12,6 +12,7 @@ import tempfile
 import re
 
 from .devices import DeviceProfile, require_supported_device
+from .identity import SLOTS, effect_slot, validate_name, identify
 
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -90,10 +91,10 @@ def patch_ids(path: Path) -> set[int]:
     return set(patch.ids)
 
 
-def require_stock_patch(path: Path) -> None:
+def require_stock_patch(path: Path, permitted_ids=frozenset()) -> None:
     sys.path.insert(0, str(STOMP / "tools-pedal"))
     from stock_catalog import STOCK_IDS
-    allowed = STOCK_IDS | {0}
+    allowed = STOCK_IDS | {0} | set(permitted_ids)
     unknown = patch_ids(path) - allowed
     if unknown:
         raise DeployError(f"{path.name} contains a non-stock effect ID "
@@ -101,7 +102,7 @@ def require_stock_patch(path: Path) -> None:
                           "select/save stock-only patches before installing")
 
 
-def require_stock_patches(current: Path, backup: Path, expected_count: int) -> None:
+def require_stock_patches(current: Path, backup: Path, expected_count: int, permitted_ids=frozenset()) -> None:
     require_stock_patch(current)
     patches = sorted((backup / "patches").glob("*.zptc"))
     if len(patches) != expected_count:
@@ -109,7 +110,7 @@ def require_stock_patches(current: Path, backup: Path, expected_count: int) -> N
             f"backup does not contain exactly {expected_count} saved patches"
         )
     for path in patches:
-        require_stock_patch(path)
+        require_stock_patch(path, permitted_ids)
 
 
 def _profile(family_code: object, model_number: object, version: object) -> DeviceProfile:
@@ -135,15 +136,32 @@ def _profile_from_identify(output: str) -> DeviceProfile:
     return _profile(fields["Family"], fields["Model"], version.group(1))
 
 
+def _valid_existing(old, slot):
+    if old.effect_id in LEGACY_BANK_IDS:
+        return slot.number == 1 and old.name == "N2Z Bank"
+    if old.effect_id != slot.effect_id:
+        return False
+    try:
+        validate_name(old.name, max_length=10)
+    except ValueError:
+        return False
+    return True
+
+
 def plan_backup(effect: Path | None, icon: Path | None,
-                backup: Path, current: Path) -> bool:
+                backup: Path, current: Path, slot_number=1) -> bool:
     sys.path.insert(0, str(ROOT / "tools"))
     from offline_effect_audit import audit_bytes, load_backup
     from zd2 import parse_zd2_bytes
 
+    slot = effect_slot(slot_number)
+    BANK_NAME, BANK_ICON, BANK_ID = slot.filename, slot.icon, slot.effect_id
+    permitted_ids = {s.effect_id for s in SLOTS if s.number != slot_number}
+    if slot_number != 1:
+        permitted_ids |= LEGACY_BANK_IDS
     if effect is not None:
         candidate = parse_zd2_bytes(effect.read_bytes())
-        if candidate.effect_id != BANK_ID or candidate.name != "N2Z Bank":
+        if candidate.effect_id != BANK_ID:
             raise DeployError("new N2ZBANK file has an unexpected effect ID or name")
     manifest = json.loads((backup / "manifest.json").read_text(encoding="utf-8"))
     identity = manifest.get("identity", {})
@@ -152,10 +170,13 @@ def plan_backup(effect: Path | None, icon: Path | None,
         identity.get("version")
     )
     print(f"Detected {profile.name} firmware {profile.firmware}.", flush=True)
+    if effect is not None:
+        from .waveformer import require_host_device
+        require_host_device(effect, profile)
     installed, names, flst_path = load_backup(backup)
-    require_stock_patches(current, backup, profile.patch_count)
+    require_stock_patches(current, backup, profile.patch_count, permitted_ids)
     legacy = sorted(name for name in installed if name.startswith("N2Z")
-                    and name != BANK_NAME)
+                    and name not in {s.filename for s in SLOTS})
     if legacy:
         raise DeployError(f"another NAM2Zoom effect is installed: {legacy}; "
                           "remove it separately before installing N2Z Bank")
@@ -164,7 +185,7 @@ def plan_backup(effect: Path | None, icon: Path | None,
         raise DeployError("existing N2Z Bank binary/icon pair is incomplete")
     if existing:
         old = parse_zd2_bytes((backup / "files" / BANK_NAME).read_bytes())
-        if old.effect_id not in INSTALLED_BANK_IDS or old.name != "N2Z Bank":
+        if not _valid_existing(old, slot):
             raise DeployError("existing N2ZBANK filename has an unexpected identity")
     flst = _flst()
     old_list = flst_path.read_bytes()
@@ -176,7 +197,14 @@ def plan_backup(effect: Path | None, icon: Path | None,
         raise DeployError("bank files and effect-list entry disagree")
     if effect is not None:
         installed.pop(BANK_NAME, None)
-        names.discard("n2z bank")
+        if existing:
+            names.discard(old.name.casefold())
+        for other in SLOTS:
+            if other.number != slot_number and other.filename in installed:
+                sibling = parse_zd2_bytes((backup / "files" / other.filename).read_bytes())
+                if not _valid_existing(sibling, other):
+                    raise DeployError("another NAM slot has an unexpected identity")
+                names.add(sibling.name.casefold())
         problems = audit_bytes(effect.read_bytes(), icon.read_bytes(), installed, names)
         if problems:
             raise DeployError("new bank failed offline audit: " + "; ".join(problems))
@@ -184,19 +212,27 @@ def plan_backup(effect: Path | None, icon: Path | None,
 
 
 def plan_live(effect: Path | None, icon: Path | None,
-              session: Path, current: Path) -> tuple[bool, Path]:
+              session: Path, current: Path, slot_number=1) -> tuple[bool, Path]:
     """Check live catalog and patches without making a full device backup."""
     sys.path.insert(0, str(ROOT / "tools"))
     from offline_effect_audit import audit_bytes
     from zd2 import parse_zd2_bytes
 
+    slot = effect_slot(slot_number)
+    BANK_NAME, BANK_ICON, BANK_ID = slot.filename, slot.icon, slot.effect_id
+    permitted_ids = {s.effect_id for s in SLOTS if s.number != slot_number}
+    if slot_number != 1:
+        permitted_ids |= LEGACY_BANK_IDS
     if effect is not None:
         candidate = parse_zd2_bytes(effect.read_bytes())
-        if candidate.effect_id != BANK_ID or candidate.name != "N2Z Bank":
+        if candidate.effect_id != BANK_ID:
             raise DeployError("new N2ZBANK file has an unexpected effect ID or name")
     identify = _run(_python(ROOT / "tools/msplus.py", "--timeout", "5", "identify"),
                     capture=True)
     profile = _profile_from_identify(identify)
+    if effect is not None:
+        from .waveformer import require_host_device
+        require_host_device(effect, profile)
     print(f"Detected {profile.name} firmware {profile.firmware}.", flush=True)
     info = _run(_python(ROOT / "tools/msplus.py", "--timeout", "5", "patch-info"),
                 capture=True)
@@ -210,7 +246,7 @@ def plan_live(effect: Path | None, icon: Path | None,
             path = Path(temporary) / f"{location:03d}.zptc"
             _run(_python(ROOT / "tools/msplus.py", "--timeout", "5",
                          "download-patch", str(location), str(path)))
-            require_stock_patch(path)
+            require_stock_patch(path, permitted_ids)
     listing = _run(_python(ROOT / "tools/msplus.py", "--timeout", "5", "list-files"),
                    capture=True)
     files = set(listing.splitlines())
@@ -218,7 +254,7 @@ def plan_live(effect: Path | None, icon: Path | None,
         raise DeployError("pedal file listing lacks FLST_SEQ.ZT2")
     legacy = sorted(name for name in files if name.startswith("N2Z")
                     and name.upper().endswith((".ZD2", ".ZIC"))
-                    and name not in (BANK_NAME, BANK_ICON))
+                    and name not in {n for s in SLOTS for n in (s.filename, s.icon)})
     if legacy:
         raise DeployError(f"another NAM2Zoom effect is installed: {legacy}")
     existing = BANK_NAME in files
@@ -240,7 +276,16 @@ def plan_live(effect: Path | None, icon: Path | None,
         raise DeployError("pedal effect list contains duplicate installed filenames")
     if effect is not None:
         installed.pop(BANK_NAME, None)
-        problems = audit_bytes(effect.read_bytes(), icon.read_bytes(), installed)
+        sibling_names = set()
+        for other in SLOTS:
+            if other.number != slot_number and other.filename in installed:
+                sibling_path = live / other.filename
+                _download(other.filename, sibling_path)
+                sibling = parse_zd2_bytes(sibling_path.read_bytes())
+                if not _valid_existing(sibling, other):
+                    raise DeployError("another NAM slot has an unexpected identity")
+                sibling_names.add(sibling.name.casefold())
+        problems = audit_bytes(effect.read_bytes(), icon.read_bytes(), installed, sibling_names)
         if problems:
             raise DeployError("new bank failed offline audit: " + "; ".join(problems))
     if existing:
@@ -248,7 +293,7 @@ def plan_live(effect: Path | None, icon: Path | None,
         _download(BANK_NAME, old_effect)
         _download(BANK_ICON, live / BANK_ICON)
         old = parse_zd2_bytes(old_effect.read_bytes())
-        if old.effect_id not in INSTALLED_BANK_IDS or old.name != "N2Z Bank":
+        if not _valid_existing(old, slot):
             raise DeployError("existing N2ZBANK filename has an unexpected identity")
     return existing, live
 
@@ -266,6 +311,8 @@ def _read_effect_list(destination: Path) -> bytes:
 def install_bank(effect: Path, session: Path, effect_hash: str,
                  icon_hash: str, *, full_backup: bool = True) -> str:
     effect = effect.resolve(strict=True)
+    slot, candidate = identify(effect)
+    BANK_NAME, BANK_ICON = slot.filename, slot.icon
     icon = effect.with_suffix(".ZIC")
     if effect.name != BANK_NAME or not icon.is_file():
         raise DeployError("expected N2ZBANK.ZD2 and companion N2ZBANK.ZIC")
@@ -289,17 +336,17 @@ def install_bank(effect: Path, session: Path, effect_hash: str,
         _run(_python(ROOT / "tools/msplus.py", "--timeout", "5", "backup",
                      str(session / "backup")))
         backup = session / "backup"
-        existing = plan_backup(effect, icon, backup, current)
+        existing = plan_backup(effect, icon, backup, current, slot.number)
         prior = backup / "files"
     else:
-        existing, prior = plan_live(effect, icon, session, current)
+        existing, prior = plan_live(effect, icon, session, current, slot.number)
     before = (prior / "FLST_SEQ.ZT2").read_bytes()
     verify_approved(effect, icon, effect_hash, icon_hash)
     if existing:
         old_effect = prior / BANK_NAME
         old_icon = prior / BANK_ICON
         if digest(old_effect) == effect_hash.lower() and digest(old_icon) == icon_hash.lower():
-            print("N2Z Bank is already installed with these exact bytes; no pedal write needed.",
+            print(f"{BANK_NAME} is already installed with these exact bytes; no pedal write needed.",
                   flush=True)
             return "already-installed"
         _tool("pedal_diy.py", "uninstall", str(old_effect), "--dry-run")
@@ -327,12 +374,14 @@ def install_bank(effect: Path, session: Path, effect_hash: str,
     good, problems = _flst().expect_single_add(before, after, BANK_NAME)
     if not good:
         raise DeployError("install effect-list diff is wrong: " + "; ".join(problems))
-    print("N2Z Bank installed and independently verified. Do not save a patch "
+    print(f"{BANK_NAME} installed and independently verified. Do not save a patch "
           "containing the experimental effect.", flush=True)
     return "installed"
 
 
-def uninstall_bank(session: Path, *, full_backup: bool = True) -> str:
+def uninstall_bank(session: Path, *, full_backup: bool = True, slot_number=1) -> str:
+    slot = effect_slot(slot_number)
+    BANK_NAME, BANK_ICON = slot.filename, slot.icon
     session = session.resolve()
     session.mkdir(parents=True, exist_ok=False)
     opener = _tool("safe_connect.py", str(session / "preflight"), capture=True)
@@ -344,12 +393,12 @@ def uninstall_bank(session: Path, *, full_backup: bool = True) -> str:
         _run(_python(ROOT / "tools/msplus.py", "--timeout", "5", "backup",
                      str(session / "backup")))
         backup = session / "backup"
-        existing = plan_backup(None, None, backup, current)
+        existing = plan_backup(None, None, backup, current, slot_number)
         prior = backup / "files"
     else:
-        existing, prior = plan_live(None, None, session, current)
+        existing, prior = plan_live(None, None, session, current, slot_number)
     if not existing:
-        print("N2Z Bank is not installed; no pedal write needed.", flush=True)
+        print(f"{BANK_NAME} is not installed; no pedal write needed.", flush=True)
         return "not-installed"
 
     old_effect = prior / BANK_NAME
@@ -367,5 +416,5 @@ def uninstall_bank(session: Path, *, full_backup: bool = True) -> str:
     good, problems = _flst().expect_single_remove(before, removed, BANK_NAME)
     if not good:
         raise DeployError("uninstall effect-list diff is wrong: " + "; ".join(problems))
-    print("N2Z Bank uninstalled and independently verified.", flush=True)
+    print(f"{BANK_NAME} uninstalled and independently verified.", flush=True)
     return "uninstalled"

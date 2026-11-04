@@ -1,4 +1,5 @@
 using Nam2ZoomDesktop;
+using System.Diagnostics;
 
 // Optional maintainer integration check: downloads CUDA into an isolated data
 // directory and exercises the same setup service used by the desktop dialog.
@@ -26,6 +27,15 @@ if (args.FirstOrDefault() == "--child") {
     return 7;
 }
 if (args.FirstOrDefault() == "--wait") { await Task.Delay(30000); return 0; }
+if (args.FirstOrDefault() == "--spawn-worker") {
+    await Task.Delay(250); // Give the backend time to attach the launcher to its job.
+    using var child = Process.Start(new ProcessStartInfo(Environment.ProcessPath!) {
+        UseShellExecute = false, ArgumentList = { "--wait" }
+    })!;
+    Console.WriteLine("WORKER=" + child.Id);
+    if (args[1] == "exit") return 0;
+    await Task.Delay(30000); return 0;
+}
 var temporary = Path.Combine(Path.GetTempPath(), "nam2zoom shared smoke " + Guid.NewGuid().ToString("N"));
 Directory.CreateDirectory(temporary);
 try {
@@ -113,20 +123,38 @@ try {
     using var cancellation = new CancellationTokenSource(300);
     try { await backend.ExecuteAsync(Environment.ProcessPath!, ["--wait"], token: cancellation.Token); throw new Exception("Cancellation did not interrupt child"); }
     catch (OperationCanceledException) { }
+    foreach (var launcher in new[] { "wait", "exit" }) {
+        using var stop = new CancellationTokenSource();
+        var worker = new TaskCompletionSource<int>(TaskCreationOptions.RunContinuationsAsynchronously);
+        var running = backend.ExecuteAsync(Environment.ProcessPath!, ["--spawn-worker", launcher],
+            line => { if (line.StartsWith("WORKER=")) worker.TrySetResult(int.Parse(line[7..])); }, stop.Token);
+        var pid = await worker.Task.WaitAsync(TimeSpan.FromSeconds(10));
+        await Task.Delay(150);
+        var elapsed = Stopwatch.StartNew();
+        stop.Cancel();
+        if (elapsed.ElapsedMilliseconds > 200) throw new Exception("Cancellation blocked its caller");
+        try { await running.WaitAsync(TimeSpan.FromSeconds(5)); throw new Exception("Worker cancellation ignored"); }
+        catch (OperationCanceledException) { }
+        if (OperatingSystem.IsWindows() || launcher == "wait") {
+            try {
+                using var child = Process.GetProcessById(pid);
+                await child.WaitForExitAsync().WaitAsync(TimeSpan.FromSeconds(5));
+            } catch (ArgumentException) { }
+        } else { using var child = Process.GetProcessById(pid); child.Kill(); }
+    }
+    Console.WriteLine("Cancellation returns immediately, stops workers and drains pipes after launcher exit: PASS");
     var models = new[] { new ModelSelection { Label = "AMP" }, new ModelSelection { Label = "amp" } };
     try { BankService.Validate(models); throw new Exception("Case-insensitive duplicate labels accepted"); }
     catch (InvalidDataException) { }
-    var liteModels = Enumerable.Range(1, 3).Select(n => new ModelSelection { Label = $"L{n}", ModelProfile = "lite" }).ToArray();
-    try { BankService.Validate(liteModels); throw new Exception("Saved Lite list accepted"); }
-    catch (InvalidDataException) { }
+    var liteModels = Enumerable.Range(1, 5).Select(n => new ModelSelection { Label = $"L{n}", ModelProfile = "lite" }).ToArray();
+    BankService.Validate(liteModels);
     try { BankService.Validate(liteModels, "compact"); throw new Exception("Lite list accepted as Compact"); }
     catch (InvalidDataException) { }
-    try { BankService.MaxModels("lite"); throw new Exception("Lite profile enabled"); }
+    if (BankService.MaxModels("lite") != 5) throw new Exception("Incorrect Lite model limit");
+    var sixModels = liteModels.Append(new ModelSelection { Label = "L6", ModelProfile = "lite" }).ToArray();
+    try { BankService.Validate(sixModels); throw new Exception("Six-model saved Lite list accepted"); }
     catch (InvalidDataException) { }
-    var fourModels = liteModels.Append(new ModelSelection { Label = "L4", ModelProfile = "lite" }).ToArray();
-    try { BankService.Validate(fourModels); throw new Exception("Four-model saved Lite list accepted"); }
-    catch (InvalidDataException) { }
-    try { BankService.Validate(fourModels, "lite"); throw new Exception("Four-model Lite build accepted"); }
+    try { BankService.Validate(sixModels, "lite"); throw new Exception("Six-model Lite build accepted"); }
     catch (InvalidDataException) { }
     BankService.Validate(Enumerable.Range(1, 10).Select(n => new ModelSelection { Label = $"C{n}" }).ToArray(), "compact");
     var model = Path.Combine(temporary, "model.nam");

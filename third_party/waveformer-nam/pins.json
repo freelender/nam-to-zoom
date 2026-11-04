@@ -1,0 +1,15 @@
+{
+  "source": "https://sym.bios.is/",
+  "coreVersion": "0.8.1",
+  "hostVersion": "0.21",
+  "imageWords": 1504,
+  "files": {
+    "nam-core.cjs": "7d8da717af44052478b52499856ab3af1e04bba96af10a9b9a4902ce83448c91",
+    "WFNAM44.ZD2": "38823ba9ec668d71bf69a122c7b11e5784d51fcc19cef6f0d96eaf24e26967b6",
+    "WFNAM48.ZD2": "91377b8262aea87db66ba492d1163f4979ef17d18feffa29b4c84d2e7b6324e3",
+    "probe.f64": "4ae81d1e234d7c25aa5084ea72b36fb7143e7ccb31bffd400b95d4685380a9dd",
+    "pluck.f64": "520fbba8551f1038106ac4d2be3c272433f15b7b29294bd3f74d414e8996ffd7",
+    "icon-data.json": "c0f5884bbcdef363f782fd26c15127767579efa117fb78c15d856f41623bf810",
+    "nam2zoom-artwork.bin": "5a8e36db1d3dcd2d49ce7b77e30c362017b6856fb3cd0284b2c2f6afa516baf8"
+  }
+}

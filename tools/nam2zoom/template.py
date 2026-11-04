@@ -10,16 +10,19 @@ from offline_effect_audit import audit_bytes
 from zd2 import compute_checksum, parse_zd2_bytes
 
 from .compact import expected_parameters, geometry, reserved_dsp_load
-from .bank import max_models
+from .bank import max_models, own_host_dsp_load, OWN_HOST_COEFFICIENT_SLOTS
 
 WORDS = expected_parameters(3)
 SOURCES = ("dsp/nam_a2_bank_zd2/bank_effect.c", "dsp/nam_a2_compact/compact_pair.c",
            "dsp/nam_a2_compact/compact_pair.h", "dsp/nam_a2_compact/compact_kernel.h")
 
 
-def sources(profile):
+def sources(profile, own_host=False, compact_effect=False):
     geometry(profile)
-    return SOURCES if profile == "compact" else tuple(name.replace("nam_a2_compact/", "nam_a2_lite/") for name in SOURCES)
+    result = SOURCES if profile == "compact" else tuple(name.replace("nam_a2_compact/", "nam_a2_lite/") for name in SOURCES)
+    return ("dsp/nam_a2_own_host/host.c", ("dsp/nam_a2_own_host/compact_block.c" if compact_effect else "dsp/nam_a2_own_host/block4.c"),
+            "dsp/nam_a2_own_host/block4.h", "dsp/nam_a2_own_host/compact_runtime.h",
+            "dsp/nam_a2_own_host/compact_filters.h", result[3]) if own_host else result
 
 
 def digest(data: bytes) -> str:
@@ -27,7 +30,10 @@ def digest(data: bytes) -> str:
 
 
 def fill_template(templates: Path, manifest: Path) -> Path:
-    profile = json.loads((manifest.parent / "bank.json").read_text()).get("model_profile", "compact")
+    lock = json.loads((manifest.parent / "bank.json").read_text())
+    profile = lock.get("model_profile", "compact")
+    own_host = lock.get("control_layout") == "nam2zoom-seven-v1"
+    dsp_load = own_host_dsp_load(lock.get("effect_mode") == "compact") if own_host else reserved_dsp_load(profile)
     words = expected_parameters(3, profile)
     config = json.loads(manifest.read_text(encoding="ascii"))
     params = config["params"]
@@ -39,8 +45,19 @@ def fill_template(templates: Path, manifest: Path) -> Path:
         raise ValueError("unsupported bank template format")
     if index.get("model_profile", "compact") != profile:
         raise ValueError("bank template model profile mismatch")
+    if index.get("control_layout") != lock.get("control_layout"):
+        raise ValueError("bank template control layout mismatch")
+    if own_host and index.get("effect_mode") != lock.get("effect_mode"):
+        raise ValueError("bank template Full/Compact mode mismatch")
+    if own_host and (index.get("coefficient_slots") != OWN_HOST_COEFFICIENT_SLOTS or
+                     {p["name"]:p.get("slot") for p in params} != OWN_HOST_COEFFICIENT_SLOTS):
+        raise ValueError("bank template coefficient slots mismatch; regenerate templates")
+    if own_host and lock.get("effect_mode") == "compact":
+        from .artwork import COMPACT_ARTWORK
+        if index.get("artwork_variant") != COMPACT_ARTWORK:
+            raise ValueError("Compact template mode label is missing; regenerate templates")
     root = Path(__file__).resolve().parents[2]
-    if index.get("dsp_source_sha256") != {name: digest((root / name).read_bytes()) for name in sources(profile)}:
+    if index.get("dsp_source_sha256") != {name: digest((root / name).read_bytes()) for name in sources(profile, own_host, lock.get("effect_mode") == "compact")}:
         raise ValueError("bank templates do not match the current DSP sources")
     record = index["banks"][str(count)]
     raw = (templates / f"bank-{count}.ZD2").read_bytes()
@@ -48,14 +65,18 @@ def fill_template(templates: Path, manifest: Path) -> Path:
     if digest(raw) != record["sha256"] or digest(icon) != index["icon_sha256"]:
         raise ValueError("bank template or icon hash mismatch")
     expected_params = ["Model", "Bass", "Mid", "Treble", "Vol", "Input", "Mix"]
-    if ([p["name"] for p in params] != expected_params or config["dspload"] != reserved_dsp_load(profile)
-            or [p.get("default") for p in params] != [0, 50, 50, 50, 50, 50, 100]
+    defaults = [0, 50, 50, 50, 50, 50, 100]
+    if own_host:
+        expected_params = ["Model", "Gain", "Volume", "Mix", "Bass", "Middle", "Treble"]
+        defaults = [0, 50, 50, 100, 50, 50, 50]
+    if ([p["name"] for p in params] != expected_params or config["dspload"] != dsp_load
+            or [p.get("default") for p in params] != defaults
             or [p.get("max", len(p.get("values", [])) - 1) for p in params]
-            != [max(1, count - 1)] + [100] * 6):
+            != [max(1, count - 1)] + [100] * (len(expected_params) - 1)):
         raise ValueError("manifest does not match the compiled template controls")
     zd2 = parse_zd2_bytes(raw)
     info = next(chunk for chunk in zd2.chunks if chunk.tag == "INFO")
-    if struct.unpack_from("<f", info.data, len(info.data) - 4)[0] != reserved_dsp_load(profile):
+    if index.get("reserved_dsp_load", dsp_load) != dsp_load or struct.unpack_from("<f", info.data, len(info.data) - 4)[0] != dsp_load:
         raise ValueError("template DSP reservation does not match the model profile; regenerate templates")
     elf = parse_elf32(zd2.data_chunk.data)
     const = next(section for section in elf.sections if section.name == ".const")
@@ -70,7 +91,7 @@ def fill_template(templates: Path, manifest: Path) -> Path:
            for value in struct.unpack(f"<{count * words}f", weights)):
         raise ValueError("template weights must be finite")
     labels_data = b"".join(label.encode("ascii").ljust(8, b"\0") for label in labels)
-    if any(not 1 <= len(label) <= 5 for label in labels):
+    if any(not 1 <= len(label) <= 6 for label in labels):
         raise ValueError("invalid template selector label")
     output = bytearray(raw)
     ranges = [(record["weights_offset"], weights), (record["labels_offset"], labels_data)]

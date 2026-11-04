@@ -23,7 +23,7 @@ class DeviceProfileTests(unittest.TestCase):
         self.assertTrue(ms70.bank_hardware_tested)
         self.assertEqual(ms70.patch_count, 100)
         self.assertEqual(ms60.name, "Zoom MS-60B+")
-        self.assertFalse(ms60.bank_hardware_tested)
+        self.assertTrue(ms60.bank_hardware_tested)
         self.assertEqual(ms60.patch_count, 100)
 
     def test_refuses_wrong_model_or_firmware(self):

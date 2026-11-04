@@ -25,15 +25,3 @@ diff --git a/zoom-zt2/zoomzt2.py b/zoom-zt2/zoomzt2.py
  	MODULATION = 6,
  	SFX = 7,
 
-diff --git a/tools-pedal/pedal_diy.py b/tools-pedal/pedal_diy.py
---- a/tools-pedal/pedal_diy.py
-+++ b/tools-pedal/pedal_diy.py
-@@ -272,5 +272,8 @@
-     if 0x07000F00 <= eid <= 0x07000FFF:
-         return True
-+    # NAM2Zoom's local PREAMP bank; classify still checks stock collisions.
-+    if eid == 0x04001787:
-+        return True
-     group = (eid >> 24) & 0xFF
-     low24 = eid & 0xFFFFFF
-     if 0x01 <= group <= 0x09 and 0x001000 <= low24 <= 0x0013FF:

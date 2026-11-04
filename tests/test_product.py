@@ -84,7 +84,8 @@ class ProductTests(unittest.TestCase):
         self.assertEqual(normalize_labels(paths, ["ONE", "TWO"]), ["ONE", "TWO"])
         with self.assertRaisesRegex(ValueError, "unique"):
             normalize_labels(paths, ["SAME", "same"])
-        with self.assertRaisesRegex(ValueError, "1-5"):
+        self.assertEqual(normalize_labels(paths, ["MODEL1", "MODEL2"]), ["MODEL1", "MODEL2"])
+        with self.assertRaisesRegex(ValueError, "1-6"):
             normalize_labels(paths, ["TOOLONG", "TWO"])
 
     def test_ten_models_and_eleventh_rejected(self):

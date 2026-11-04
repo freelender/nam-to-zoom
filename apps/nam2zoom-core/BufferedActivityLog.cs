@@ -50,6 +50,11 @@ public sealed class BufferedActivityLog : IAsyncDisposable
         }
     }
 
+    public void ClearDisplay()
+    {
+        lock (gate) { tail.Clear(); lastLine = ""; changed = true; }
+    }
+
     public async ValueTask DisposeAsync()
     {
         lock (gate) lines.Writer.TryComplete();

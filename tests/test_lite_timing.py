@@ -23,7 +23,7 @@ def report(variant=0, mean=40000):
 
 
 def audio(words, rate=44100):
-    bits = "".join(f"{w:032b}" for w in struct.unpack("<19I", packet_bytes(words)))
+    bits = "".join(f"{w:032b}" for w in struct.unpack(f"<{len(words)+1}I", packet_bytes(words)))
     phase = np.arange(441)
     slots = []
     for bit in bits:
@@ -38,6 +38,21 @@ def audio(words, rate=44100):
 
 
 class TimingCodecTests(unittest.TestCase):
+    def test_component_packet_crc_decode_and_accounting(self):
+        words=report();words[1]=2
+        words += [20000,22000,1000,1200,1500,1700,500,600]
+        with tempfile.TemporaryDirectory() as temporary:
+            wav=Path(temporary)/'components.wav'
+            sf.write(wav,np.tile(audio(words),3),44100,subtype='FLOAT')
+            result=decode(wav)
+            self.assertEqual(result['version'],2)
+            self.assertEqual(result['neural_mean'],20000)
+            self.assertEqual(result['unattributed_mean_ticks'],17000)
+            self.assertEqual(result['component_share_of_callback_percent']['neural'],50)
+            words[18]=50000;words[19]=51000
+            sf.write(wav,audio(words),44100,subtype='FLOAT')
+            with self.assertRaisesRegex(ValueError,'exceed'):
+                decode(wav)
     def test_sample_rates_gain_noise_stereo_and_comparison(self):
         with tempfile.TemporaryDirectory() as temporary:
             directory = Path(temporary)
@@ -78,6 +93,18 @@ class TimingCodecTests(unittest.TestCase):
                 decode(path)
 
     def test_real_c_callback_report_guards_rollover_and_stopped_timer(self):
+        self.replay_timing(False)
+
+    def test_own_quad_callback_report_guards_rollover_and_stopped_timer(self):
+        self.replay_timing(True)
+
+    def test_component_profile_full_callback(self):
+        self.replay_timing(True, components=True)
+
+    def test_component_profile_compact_callback(self):
+        self.replay_timing(True, components=True, compact_effect=True)
+
+    def replay_timing(self, own_host, components=False, compact_effect=False):
         if sys.platform == "darwin":
             self.skipTest("32-bit callback ABI exercised on Windows")
         clang = find_clang()
@@ -89,10 +116,24 @@ class TimingCodecTests(unittest.TestCase):
                 shutil.copyfile(ROOT / "dsp/nam_a2_lite" / name, directory / name)
             for name in ("bank_effect.c", "timing_effect.c"):
                 shutil.copyfile(ROOT / "dsp/nam_a2_bank_zd2" / name, directory / name)
+            if own_host:
+                for source, target in (("host.c", "bank_effect.c"), ("compact_block.c" if compact_effect else "block4.c", "compact_pair.c"),
+                                       ("block4.h", "compact_pair.h")):
+                    shutil.copyfile(ROOT / "dsp/nam_a2_own_host" / source, directory / target)
+                for name in ("compact_runtime.h", "compact_filters.h"):
+                    shutil.copyfile(ROOT / "dsp/nam_a2_own_host" / name, directory / name)
             header = "#ifndef SH_PARAMS_H\n#define SH_PARAMS_H\n#define SH_STATE_BYTES 184\n#define SH_FRAMES 16\n#define SH_CH_B_OFFSET 16\n"
             header += "#define SH_CTX_EFF 1\n#define SH_STATE_GUARD_WORD 46\n#define SH_STATE_GUARD 0x57464731u\n#define SH_COEFF_BYPASS 0\n#define SH_AUDIO_FN Fx_SFX_N2ZBank\n"
             header += "".join(f"#define SH_PARAM_{name} {index}\n" for name, index in
                               zip(("MODEL", "BASS", "MID", "TREBLE", "VOL", "INPUT", "MIX"), (3, 5, 6, 7, 8, 9, 10)))
+            if own_host:
+                header = header.replace("#define SH_PARAM_MODEL 3", "#define SH_PARAM_MODEL 12")
+                header = header.replace("#define SH_PARAM_MID 6", "#define SH_PARAM_MIDDLE 6")
+                header += "#define SH_PARAM_GAIN 13\n"
+                header = header.replace("#define SH_PARAM_VOL 8", "#define SH_PARAM_VOLUME 8")
+                header = header.replace("#define SH_PARAM_INPUT 9\n", "").replace("#define SH_PARAM_MIX 10", "#define SH_PARAM_MIX 9")
+            if components:
+                header=header.replace('SH_STATE_BYTES 184','SH_STATE_BYTES 128').replace('SH_STATE_GUARD_WORD 46','SH_STATE_GUARD_WORD 32')
             (directory / "sh_params.h").write_text(header + "#endif\n", encoding="ascii")
             (directory / "bank_config.h").write_text("#define BANK_MODEL_COUNT 1u\n#define BANK_SELECTOR_MAX 1u\n#define BANK_WORDS_PER_MODEL 1871u\n", encoding="ascii")
             (directory / "timing_config.h").write_text("#define N2Z_TIMING_VARIANT 1u\n#define N2Z_TIMING_MODEL_TAG 0x12345678u\n", encoding="ascii")
@@ -131,8 +172,14 @@ int main(int argc,char **argv) {
     descriptor[1]=(uint32_t)(uintptr_t)(arena+1+HISTORY_FLOATS);
     descriptor[2]=HISTORY_BYTES;
     instance[1]=coeff; instance[2]=storage; instance[3]=descriptor; ctx[SH_CTX_EFF]=bus;
-    coeff[0]=coeff[10]=1.f;
-    coeff[5]=coeff[6]=coeff[7]=coeff[8]=coeff[9]=.5f;
+    coeff[0]=coeff[SH_PARAM_MIX]=1.f;
+    coeff[5]=coeff[6]=coeff[7]=coeff[8]=.5f;
+#ifdef SH_PARAM_GAIN
+    coeff[SH_PARAM_GAIN]=.5f;
+#endif
+#ifdef SH_PARAM_INPUT
+    coeff[SH_PARAM_INPUT]=.5f;
+#endif
     if(run(7000,0) || s->meter.stage != 3 || s->meter.data.packet[3] != 0 ||
        s->meter.data.packet[10] != 100 || s->meter.data.packet[6] != 100 ||
        s->meter.data.packet[13] != 300) return 2;
@@ -143,14 +190,30 @@ int main(int argc,char **argv) {
     coeff[0]=0.f; if(run(1,0)||s->meter.magic) return 6;
     stopped=1; coeff[0]=1.f;
     if(run(2100,0)||s->meter.stage!=3||s->meter.data.packet[3]!=1) return 7;
-    coeff[0]=0.f; run(1,0); stopped=0; coeff[0]=1.f; coeff[10]=.5f;
+    coeff[0]=0.f; run(1,0); stopped=0; coeff[0]=1.f; coeff[SH_PARAM_MIX]=.5f;
     if(run(2,0)||s->meter.data.packet[3]!=4) return 8;
-    coeff[0]=0.f; run(1,0); coeff[0]=1.f; coeff[10]=1.f; descriptor[2]=4;
+    coeff[0]=0.f; run(1,0); coeff[0]=1.f; coeff[SH_PARAM_MIX]=1.f; descriptor[2]=4;
     if(run(4200,0)||s->meter.stage!=3||s->meter.data.packet[3]!=3) return 9;
     puts("Timing: bounded state/history, rollover, parked network, restart, stopped timer, controls, invalid descriptor PASS");
     return 0;
 }
 '''
+            if components:
+                source = '#define N2Z_PROFILE_COMPONENTS 1\n' + source
+                source=source.replace('run(80000,out)','run(160000,out)')
+                if compact_effect:source='#define N2Z_COMPACT_EFFECT 1\n'+source
+                source=source.replace('[46]','[SH_STATE_GUARD_WORD]').replace('[47]','[SH_STATE_GUARD_WORD+1]')
+                source=source.replace('static float arena[HISTORY_FLOATS+2]', '#define ARENA_FLOATS (HISTORY_FLOATS+sizeof(TimingMeter)/sizeof(float))\nstatic float arena[ARENA_FLOATS+2]')
+                source=source.replace('arena[HISTORY_FLOATS+1]','arena[ARENA_FLOATS+1]')
+                source=source.replace('arena+1+HISTORY_FLOATS','arena+1+ARENA_FLOATS')
+                source=source.replace('descriptor[2]=HISTORY_BYTES;', 'descriptor[2]=HISTORY_BYTES+sizeof(TimingMeter);')
+                source=source.replace('TimingState *s=(TimingState*)storage;', 'TimingState *s=(TimingState*)storage;\n    TimingMeter *meter=(TimingMeter*)(arena+1+HISTORY_FLOATS);')
+                source=source.replace('s->meter.', 'meter->')
+                source=source.replace('run(1,0)||meter->magic', 'run(1,0)||s->net.profile_session')
+                source=source.replace('if(run(4200,0)||meter->stage!=3||meter->data.packet[3]!=3) return 9;',
+                    'if(run(4200,0)) return 9; for(unsigned i=0;i<32;++i) if(bus[i]!=0.f) return 9;')
+                source=source.replace('packet[10] != 100','packet[10] != '+('900' if compact_effect else '500'))
+                source=source.replace('packet[13] != 300','packet[13] != '+('1100' if compact_effect else '700'))
             (directory / "probe.c").write_text(source, encoding="ascii")
             exe = directory / "probe.exe"
             compiled = subprocess.run([clang, "-m32", "-O3", "-ffp-contract=off", "-Wno-unknown-pragmas",
@@ -162,9 +225,16 @@ int main(int argc,char **argv) {
             wav = directory / "actual-c.wav"
             sf.write(wav, np.fromfile(raw, dtype="<f4"), 44100, subtype="FLOAT")
             decoded = decode(wav)
-            self.assertEqual(decoded["callback_mean"], 100)
-            self.assertEqual(decoded["loaded_period_mean"], 300)
+            self.assertEqual(decoded["callback_mean"], (900 if compact_effect else 500) if components else 100)
+            self.assertEqual(decoded["loaded_period_mean"], (1100 if compact_effect else 700) if components else 300)
             self.assertEqual(decoded["variant"], 1)
+            if components:
+                self.assertEqual(decoded['version'],2)
+                self.assertEqual(decoded['neural_mean'],100)
+                self.assertEqual(decoded['postprocess_mean'],100)
+                self.assertEqual(decoded['downsample_mean'],100 if compact_effect else 0)
+                self.assertEqual(decoded['upsample_mean'],100 if compact_effect else 0)
+                self.assertGreaterEqual(decoded['unattributed_mean_ticks'],0)
 
 
 if __name__ == "__main__":

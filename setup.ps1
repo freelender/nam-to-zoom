@@ -9,7 +9,7 @@ $tooling = Join-Path $root '.tooling'
 $stomp = Join-Path $tooling 'stomphacks'
 $nam = Join-Path $tooling 'neural-amp-modeler'
 $core = Join-Path $tooling 'NeuralAmpModelerCore'
-$stompRev = 'ebd5ced93988d595bb42c825dd9bd89626b300e6'
+$stompRev = '26470497e7de90497fba7528386b8029b84f8939'
 $namRev = '0072676419459f5d39e36f5b9fd4172f28d62cbf'
 $coreRev = '0b3d3c97b0859a3a8c92a8628c4dd89a25eb5842'
 

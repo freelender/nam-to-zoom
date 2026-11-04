@@ -1,10 +1,13 @@
 diff --git a/tools-pedal/pedal_diy.py b/tools-pedal/pedal_diy.py
+index b489d85..045995d 100644
 --- a/tools-pedal/pedal_diy.py
 +++ b/tools-pedal/pedal_diy.py
-@@ -95,5 +95,5 @@
+@@ -102,7 +102,7 @@ sys.path.insert(0, os.path.join(REPO_ROOT, "tools"))
+ 
  STOCK_GLOB = os.path.join(REPO_ROOT, "effects", "Zoom-*", "*.ZD2")
  STOCK_ZIC_GLOB = os.path.join(REPO_ROOT, "effects", "Zoom-*", "*.ZIC")
 -LOGFILE = os.path.join(REPO_ROOT, "tools-pedal", "pedal_diy.log")
 +LOGFILE = os.environ.get("NAM2ZOOM_PEDAL_LOG", os.path.join(REPO_ROOT, "tools-pedal", "pedal_diy.log"))
- 
- ID_OFF = 96            # uint32le effect id
+ # --free-margin-kb N: the free-space gate's margin override. A LEADING flag,
+ # parsed and floor-checked before anything else. The floor lives in
+ # file_session.UPLOAD_MARGIN_FLOOR and is checked before any pedal contact.

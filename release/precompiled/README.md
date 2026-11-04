@@ -1,27 +1,29 @@
-# Precompiled pedal DSP
+# Precompiled DSP templates
 
-These zero-weight templates were imported from the existing maintainer build
-`.tooling/portable-release-20261008-190001/{templates,templates-lite}`. Compact retains its original ten-capacity images. Lite was rebuilt on
-2026-10-09 for the experimental shared-load kernel and contains only capacities
-one through three; see [the review](../../docs/LITE_OPTIMIZATION.md).
-Compact's local pedal-tested ELF baseline regression passed on Windows.
-Lite reserves 270 raw and retains its existing experimental hardware status.
+Templates contain zero model weights. Portable builds fill only validated weights
+and selector labels; they do not compile or modify DSP instructions.
 
-Each index records the template/icon SHA-256, data offsets and production DSP
-source hashes. `template.fill_template` validates these plus CRC, INFO load,
-controls, constant bounds and unchanged non-constant ELF sections at every build.
-The precompiled files contain zero model weights; no user NAM is distributed.
+| Directory | Runtime | Model capacities |
+| --- | --- | --- |
+| `own-lite` | Current Full host | 1-5 |
+| `own-lite-compact` | Current Compact host | 1-5 |
+| `lite` | Legacy Lite host | 1-5 |
+| `compact` | Legacy 14-layer host | 1-10 |
 
-`.gitattributes` fixes the original per-file line endings on every target. This
-is necessary because these indices hash exact bytes, including line endings.
-Do not normalize the hashed C/header files without regenerating reviewed indices.
+Indexes record source, binary and icon hashes, patch offsets, control layout and
+DSP reservation. Current indexes also bind the mode and coefficient mapping.
+Filling verifies these values, CRC, finite weights, constant-data bounds and
+unchanged non-constant ELF sections.
 
-`golden.json` records deterministic output hashes for one and ten Compact models
-and one and three Lite models with every weight equal to 0.03125 and labels AMP1…AMP10. Native
-CI compares generated ZD2/ZIC bytes with these Windows-generated hashes.
+Generate current templates on Windows with the TI C6000 8.3.1 toolchain:
 
-Only regenerate using `release/create_templates.py` on a maintainer Windows
-machine with the licensed TI compiler. Review source hashes and run the template
-and local pedal-baseline tests before replacing these files. A DSP source change
-intentionally breaks release validation until matching reviewed templates exist.
-TI compiler executables are never distributed or required in portable CI.
+```text
+python release/create_templates.py --profile lite --own-host --output <new-directory> --work <new-work-directory>
+```
+
+Add `--compact-effect` for Compact. Use separate new directories, validate the
+outputs and replace each template set together with its index and icon. Do not
+redistribute TI tools.
+
+Source hashes include line endings. Preserve `.gitattributes`; source changes
+require matching templates. `golden.json` holds fixed legacy-output hashes for CI.

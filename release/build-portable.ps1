@@ -2,6 +2,7 @@ param(
     [string]$Python313,
     [string]$Python312,
     [string]$Templates,
+    [string]$LiteTemplates,
     [string]$TrainingWheel,
     [ValidatePattern('^[A-Za-z0-9-]+$')]
     [string]$OutputSuffix,
@@ -62,6 +63,13 @@ if (-not $Templates) {
         '--work', (Join-Path $work 'template-build'))
 }
 if (-not (Test-Path -LiteralPath (Join-Path $Templates 'index.json'))) { throw 'Templates missing index.json' }
+if (-not $LiteTemplates) {
+    $LiteTemplates = Join-Path $work 'templates-lite'
+    Run (Join-Path $tooling 'stomphacks/.venv/Scripts/python.exe') @(
+        (Join-Path $root 'release/create_templates.py'), '--output', $LiteTemplates,
+        '--work', (Join-Path $work 'template-lite-build'), '--profile', 'lite')
+}
+if (-not (Test-Path -LiteralPath (Join-Path $LiteTemplates 'index.json'))) { throw 'Lite templates missing index.json' }
 $env:NAM2ZOOM_TEMPLATE_DIR = (Resolve-Path -LiteralPath $Templates).Path
 if ($HardwareTestCandidate) {
     $env:NAM2ZOOM_HARDWARE_TEST_CANDIDATE = '1'
@@ -71,6 +79,9 @@ if ($HardwareTestCandidate) {
 }
 Run (Join-Path $tooling 'stomphacks/.venv/Scripts/python.exe') @('-m', 'unittest', 'discover',
     '-s', (Join-Path $root 'tests'), '-p', 'test_templates.py')
+$env:NAM2ZOOM_LITE_TEMPLATE_DIR = (Resolve-Path -LiteralPath $LiteTemplates).Path
+Run (Join-Path $tooling 'stomphacks/.venv/Scripts/python.exe') @('-m', 'unittest', 'discover',
+    '-s', (Join-Path $root 'tests'), '-p', 'test_lite_profiles.py')
 
 $kind = if ($HardwareTestCandidate) { 'hardware-test' } else { 'preview' }
 New-Item -ItemType Directory -Path $dist -Force | Out-Null
@@ -83,6 +94,7 @@ foreach ($folder in @('tools', 'dsp', 'training')) {
 }
 New-Item -ItemType Directory -Path (Join-Path $payload 'release') | Out-Null
 Copy-Item -LiteralPath $Templates -Destination (Join-Path $payload 'release/templates') -Recurse
+Copy-Item -LiteralPath $LiteTemplates -Destination (Join-Path $payload 'release/templates-lite') -Recurse
 Copy-Item -LiteralPath (Join-Path $root 'docs/USER_GUIDE.md') -Destination (Join-Path $payload 'README.md')
 Copy-Item -LiteralPath (Join-Path $root 'LICENSE') -Destination $payload
 $licenses = Join-Path $payload 'ThirdPartyLicenses'

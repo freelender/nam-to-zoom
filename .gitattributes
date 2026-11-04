@@ -6,9 +6,18 @@ dsp/nam_a2_compact/compact_pair.h text eol=lf
 dsp/nam_a2_lite/compact_kernel.h text eol=crlf
 dsp/nam_a2_lite/compact_pair.c text eol=crlf
 dsp/nam_a2_lite/compact_pair.h text eol=crlf
-*.patch text eol=lf
+dsp/nam_a2_own_host/host.c text eol=crlf
+dsp/nam_a2_own_host/block4.c text eol=lf
+dsp/nam_a2_own_host/compact_block.c text eol=lf
+dsp/nam_a2_own_host/block4.h text eol=lf
+dsp/nam_a2_own_host/compact_runtime.h text eol=lf
+dsp/nam_a2_own_host/compact_filters.h text eol=lf
+# Unified diffs contain significant space-only context lines.
+*.patch text eol=lf -whitespace
 *.py text eol=lf
 *.yml text eol=lf
 *.ZD2 binary
 *.ZIC binary
 *.wav binary
+*.f64 binary
+*.bin binary

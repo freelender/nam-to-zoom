@@ -1,0 +1,1 @@
+nam-a2-pedal.png: NAM A2 pedal illustration supplied for the nam2zoom sidebar.

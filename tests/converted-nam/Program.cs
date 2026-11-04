@@ -8,19 +8,22 @@ try {
     var original = Path.Combine(temporary, "Marshal_1982_Blabla.nam");
     File.WriteAllText(original, "original weights");
     var exported = ConvertedNam.Save(student, original, temporary);
-    var expected = Path.Combine(temporary, "Converted_NAM", Path.GetFileName(original));
+    var expected = Path.Combine(temporary, "Converted_NAM", "Marshal_1982_Blabla-441-resampled.nam");
     if (exported != expected || File.ReadAllText(exported) != "converted weights")
-        throw new Exception("Export must preserve the original filename and converted contents");
+        throw new Exception("Export must add the 44.1 kHz suffix and preserve converted contents");
     if (ConvertedNam.Save(student, original, temporary) != exported)
         throw new Exception("Cached identical conversion must reuse the export");
     File.WriteAllText(student, "different conversion");
     var changed = ConvertedNam.Save(student, original, temporary);
-    if (changed != Path.Combine(temporary, "Converted_NAM", "Marshal_1982_Blabla (2).nam")
+    if (changed != Path.Combine(temporary, "Converted_NAM", "Marshal_1982_Blabla-441-resampled (2).nam")
         || File.ReadAllText(exported) != "converted weights")
         throw new Exception("Changed conversion must preserve earlier exports");
+    if (ConvertedNam.Save(student, changed, temporary) != changed)
+        throw new Exception("Reimporting a numbered 44.1 kHz export must reuse it without another suffix");
     File.WriteAllText(student, "conversion with cab");
     var withCab = ConvertedNam.Save(student, exported, temporary);
-    if (withCab == exported || File.ReadAllText(exported) != "converted weights"
+    if (withCab != Path.Combine(temporary, "Converted_NAM", "Marshal_1982_Blabla-441-resampled (3).nam")
+        || File.ReadAllText(exported) != "converted weights"
         || File.ReadAllText(original) != "original weights")
         throw new Exception("Importing an exported NAM must never overwrite the source");
     var compact = ConvertedNam.Save(student, original, temporary, "compact");

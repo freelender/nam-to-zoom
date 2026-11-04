@@ -1,81 +1,143 @@
-# Using nam2zoom
+# User guide
 
-## Start Here
+## Install and launch
 
-Use the **Windows x64 portable ZIP** from the project's GitHub Releases, not the source-code ZIP. Extract the whole folder to a writable location such as Downloads, then run `nam2zoom-desktop.exe`. Keep all the files together. No developer tools, separate Python installation, or separate .NET installation are needed.
+Extract the complete portable package into a writable folder. On Windows, run
+`nam2zoom.exe`; on macOS, open `nam2zoom.app`. Keep the bundled files together.
+Python, the renderer and CPU training dependencies are included.
 
-This package uses **Compact**, a 14-layer network at 44.1 kHz with three channels. **A2 Lite is disabled pending further testing.** Installation supports Zoom MS-50G+ firmware 1.40 and Zoom MS-70CDR+ firmware 1.20, and experimentally supports Zoom MS-60B+ firmware 1.20. No pedal firmware or NAM models are included.
+Windows can use CPU or NVIDIA CUDA training. GPU setup requires internet access
+and a compatible NVIDIA driver. macOS uses CPU training. macOS packages are
+unsigned; use the system's **Open Anyway** option for a release you trust.
 
-The project EXE is not code-signed; Windows may warn about an unfamiliar app. Obtain the ZIP from the project's own release and verify it before approving a warning.
+## Retrain NAM files
 
-If the Microsoft Visual C++ x64 runtime is missing or too old, the app offers to download its installer directly from Microsoft, verifies its Microsoft signature, and requests Windows administrator approval to install it. Approve only a Microsoft Corporation publisher prompt. A restart may be required. This is a native-library prerequisite, not the Visual Studio developer toolchain.
+1. Add NAM files, add a folder, or drop files into the **Retrain** queue.
+2. Select the rows to process. Each file is retrained separately.
+3. Choose the training device and epoch count, from 1 to 300.
+4. Select **Retrain & export NAMs**.
+5. Review the A/B preview if a result falls below the quality limits.
+6. Use **Open Converted_NAM** to find the exported models.
 
-## Add And Convert Models
+The output is A2 Lite at 44.1 kHz: 23 layers, three channels and 1,871 float32
+weights. Compatible files are exported without retraining. Other supported
+captures, including 48 kHz models, are rendered and retrained into this format.
+Retraining approximates the original sound; results vary by capture.
 
-1. Drop one to ten `.nam` files into the app. Reorder them and give each a unique pedal label of at most five ASCII characters.
-2. Optionally select a mono Cab IR WAV for a model. The app includes that cab response in the conversion target; the pedal does not run a separate IR convolver. Do not add a second cab if the NAM already includes one unless that is intentional.
-3. Set training epochs (100 by default, maximum 300), and **Build effect**. Compatible 44.1 kHz models matching the selected profile go straight to packaging. Other supported models need conversion; incompatible/invalid architectures are refused, not silently accepted.
-4. On the first conversion, approve the training-package download. Choose **No** for CPU or **Yes** for NVIDIA CUDA packages. CPU is broadly usable but slower; GPU acceleration needs a compatible installed NVIDIA driver. The app reports whether CUDA is available. It does not install drivers. Downloads can consume several GB and are kept under `.tooling` inside the extracted app folder. You can cancel setup/build; retrying resumes package setup. No pedal writes happen during this step.
-5. Wait for conversion and preview the original/converted audio before installing. The app caches conversions under `%LOCALAPPDATA%\nam2zoom\adapt-cache`; changing training settings or IR contents produces a different cache entry. If any converted NAM exceeds the ESR limit of 0.05 (or has correlation below 0.95), one dialog after all conversions lists the affected filenames and scores. The A/B preview folder opens for comparison. Choose **Yes** to use those conversions and finish building, or **No** to stop while keeping the previews and cached results. Passing models need no quality approval. Unsupported models and invalid audio still stop the build.
+More epochs take longer and may improve the result. Matching cached conversions
+are reused. Lower ESR indicates a closer match; listen to the A/B preview when
+deciding whether to export a result that fails the quality checks.
 
-Conversion trains a **44.1 kHz, 3-channel** student against the source model: 14 layers for Compact. A 48 kHz source is rendered at its native rate and its target audio resampled before training. This is model adaptation, not simply editing the NAM sample-rate field. The source files are never modified.
+**Cancel** stops the current file and continues the queue. **Cancel all** stops
+the batch. Completed exports and cached conversions are retained. The row menu
+can retry or skip files, open previews, and locate source or exported files.
 
-The 14-layer network exports 659 weights. Compatible previous 14-layer
-conversions can be packaged directly. For models converted with the experimental
-16-layer preview, add the original NAM to convert again. Existing compatible
-14-layer adaptation caches can be reused when their training settings match.
+## Files and settings
 
-Compact is the only enabled bank profile. It uses a 14-layer, 3-channel network
-(659 weights), with a declared load of 150 raw. Test the exact effect chain
-before saving it. Banks support one to ten models.
+Exports are saved in `Converted_NAM` beside the Windows executable or beside
+the macOS app bundle. Filenames keep the original name with a `-441-resampled`
+suffix, for example `MyAmp-441-resampled.nam`. Identical exports are
+reused; changed conversions receive numbered filenames. Original captures and
+existing exports are preserved.
 
-A2 Lite selection, conversion and bank building are disabled pending further
-testing. Saved Lite lists are refused; create a Compact list using the original
-NAM files. Existing Lite caches and exports are preserved.
-New converted models are saved under `Converted_NAM/Compact`.
+Keep the app in a writable location. Caches, previews, logs and preferences are
+stored under `%LOCALAPPDATA%/nam2zoom` on Windows or
+`~/Library/Application Support/nam2zoom` on macOS.
 
-Conversions use standard spectral loss (weight 0.0005). The weaker spectral
-loss experiment has been removed after mixed results across clean, crunch and
-heavy-distortion models. Existing standard conversion caches can still be
-reused. Previously exported Ready NAMs are not retrained when imported;
-add the original NAM to replace a weaker-loss conversion with standard training.
+**Settings** includes saved queues, training-device selection and application
+folders. Saved `.n2zqueue.json` files reference the original NAM paths, so those
+files must still be available when reopening a queue. **Clear log** clears the
+visible log, not the session log on disk.
 
-The bundled training audio repeats its opening nine seconds at the end, so the conversion's tail-validation score is not an independent fidelity test. Compare the audio previews when assessing a conversion. Training configuration changes now trigger fresh cache entries; existing converted files are preserved.
+## Share and load models
 
-Accepted conversions are also saved under the selected architecture in `Converted_NAM` beside `nam2zoom-desktop.exe`, using the original filename (for example, `Converted_NAM/Compact/Marshal_1982_Blabla.nam`). Cached conversions are exported there too. Identical exports are reused; different conversions with the same filename receive numbered suffixes, preserving earlier files. You can keep these NAMs, share them where the source model's license permits, or add them directly to a later bank without retraining. A conversion made with a Cab IR already includes that cab response. Accepting a result outside the quality limits does not change its accuracy, so compare the audio previews before sharing or using it.
+Exported NAMs can be shared as Zoom-ready models. Other users do not need to
+repeat the retraining. Share only models you have permission to redistribute.
+The generated `Converted_NAM/README.txt` includes sharing information and the
+loader link.
 
-## Install Or Remove
+[The NAM loader at sym.bios.is](https://sym.bios.is/?open=nam) loads NAM files onto compatible
+Zoom pedals. The **Load NAMs at sym.bios.is** button opens it. Follow the loader's
+compatibility guidance for your pedal and firmware.
+sym.bios.is does not host or share retrained NAM models.
 
-Before replacing/removing N2Z Bank, disable autosave, select a stock patch, and remove custom effects from saved patches. The safety path checks the current patch and all 100 saved patches and refuses unsafe replacement. It accepts only MS-50G+ firmware 1.40, MS-70CDR+ firmware 1.20, or MS-60B+ firmware 1.20 and detects the model automatically.
+## Build, install and uninstall an effect
 
-**Build + Install** asks for separate approval of the exact effect/icon hashes. If the effect already exists, the app replaces it instead of adding a duplicate. The app validates the effect, identity, autosave, patches, effect list, and readback. **Uninstall effect** removes the existing N2Z Bank using the same guarded checks; it does not reset the pedal or delete stock effects.
+Open **Build effect** and select one to five retrained A2 Lite 44.1 kHz NAMs. Choose one of three effect slots:
 
-Banks installed by the previous portable version (`0x07000F87`) are recognized for replacement and uninstall. New banks use `0x04001787` in PREAMP. You do not need to uninstall with the old app first. Before upgrading, remove N2Z Bank from saved patches and select a stock patch as described above; saved patches referencing the old ID are not automatically migrated.
-
-Keep the **Backup** checkbox checked for a full device backup in `Backup` beside the EXE. With it unchecked, the app retains a smaller operation session but does not create a full-device backup. Keep USB and power connected until the operation completes. On a transfer failure, preserve the log/session and keep the device connected; consult the included `.tooling/stomphacks/SAFETY.md` instead of repeatedly reconnecting, writing, or power-cycling.
-
-## Pedal Controls
-
-| Control | Behavior | Default |
+| Slot | Effect ID | Pedal filename |
 | --- | --- | --- |
-| Model | Select the active bank model | First model |
-| Bass, Mid, Treble | Tone shaping after NAM | 50 (flat) |
-| Vol | Modeled output level | 50 (unity) |
-| Input | Level entering NAM | 50 (unity) |
-| Mix | Dry/wet blend after tone and Vol | 100 (fully wet) |
+| 1 | `0x04001787` | `N2ZBANK.ZD2` |
+| 2 | `0x04001387` | `N2ZBNK2.ZD2` |
+| 3 | `0x04001397` | `N2ZBNK3.ZD2` |
 
-The amp receives the average of the left and right channels and sends its mono output to both outputs. Identical signals on both channels keep their level; a signal on only one channel enters the amp 6 dB lower. The dry path stays stereo and is not changed by Input, tone, or Vol. Mix 0 is dry; Mix 100 is fully modeled. Only one model runs at a time. Model weights remain inside the effect file; changing the bank replaces the entire effect, not separate files on the pedal.
+Each slot can hold a different bank of up to five models. Give each effect a
+unique name of 1–8 ASCII letters, digits, spaces, hyphens or underscores.
+**Show effect name on amp artwork** prints that name inside the amp icon;
+Names use fixed bold lettering with side margins in both library and patch views.
+Compact retains its separate badge. The original amp outline stays intact.
+Previously built effects with longer names can still be loaded, installed and removed;
+new builds require names of eight characters or fewer.
 
-## Known Limits
+Install/replace and uninstall affect only the selected slot. Loading a built
+file selects its slot automatically. Check the pedal again after changing
+slots. Remove the target slot from saved patches and select a stock-only current
+patch before a write; the other slots may remain in saved patches. The three
+slots can coexist in the library, but active effects still share the pedal's
+DSP budget. Slot 1 keeps the existing ID for compatibility; slots 2 and 3 use the documented
+DIY playground. These are local assignments, not a registered author range.
+Installation still checks for collisions with the pedal's catalog.
 
-Compact declares load 150. This value is scheduling metadata, not a measured DSP percentage. The earlier six-control Compact binary passed a saved chain with N2Z, ZNR, RackComp, TS Drive, Hall REV, and LowPassFL. Substituting FD B-MAN led to PROCESS OVERFLOW on N2Z after reboot. The user reported two active 14-layer N2Z effects running cleanly; saving that combination was blocked by the declared load. That observation does not validate saved-patch behavior. Every new binary and chain needs its own audio, patch recall, and reboot test before being treated as working.
+Assign unique pedal labels of one to five characters, then set their order.
+Raw captures must be retrained first. Building an effect does not retrain them.
 
-The default seven-control effect uses the two-sample kernel reported working on an MS-50G+ with firmware 1.40 on 2026-09-29. This leaves model weights and geometry unchanged. Users have also confirmed N2Z Bank working on MS-70CDR+, and portable conversions working with both CPU and NVIDIA GPU training. MS-60B+ support uses the shared MS Plus protocol but awaits N2Z Bank hardware testing. Treat MS-60B+ installation as experimental, start with N2Z as the only effect in an unsaved patch, and report the exact pedal firmware and result. On MS-60B+, N2Z Bank appears in PREAMP. Guarded installation reduces risk but does not eliminate the possibility of freezing or permanently disabling a pedal.
+| Parameter page | Controls |
+| --- | --- |
+| 1 | Model, Gain, Volume, Mix |
+| 2 | Bass, Middle, Treble |
+
+Gain controls drive into the NAM: 50 is unity input, 0 is zero input and 100
+doubles the input level. Volume 50 is unity output. EQ 50 is flat; Mix 100 is
+fully wet.
+
+Leave **Compact** unchecked for Full processing at 44.1 kHz. Compact uses the
+same model and weights at 33.075 kHz internally, with filtered 44.1 kHz I/O.
+Compact adjusts internal model delays to approximate the original 44.1 kHz
+timing more closely. It does not require separate models or retraining.
+It lowers DSP demand but can change tone and dynamics. It adds 64 samples
+(about 1.45 ms) of latency; partial wet mixes align the dry signal to that delay.
+Fully dry output remains immediate. Compact has a small label on the amp artwork.
+
+Full declares 260 of the pedal's 270 admission budget; Compact declares 190.
+These declarations control patch admission and are not measured CPU percentages.
+The Compact checkbox changes only the effect build. Exported NAMs remain full
+A2 Lite at 44.1 kHz and can still be shared or used with other loaders.
+
+Builds are saved under `Built_effects` beside the app. Keep each slot’s ZD2 and
+matching ZIC file together. **Load built effect...** opens an existing pair.
+Rebuild and reinstall after changing models, labels, order, mode or control layout.
+
+Direct installation supports MS-50G+ firmware 1.40, MS-70CDR+ firmware 1.20,
+and MS-60B+ firmware 1.20. Other device/firmware combinations are
+refused. **Check pedal / installed bank** performs read-only identification.
+
+Before installing or removing a bank, remove the selected NAM slot from saved patches and
+select a stock-only current patch. Full backup is enabled by default. The app
+shows the binary/icon hashes for approval and verifies the transfer by readback.
+**Uninstall selected slot** removes that bank without retraining any models.
+
+Keep the pedal powered and connected during transfers. Installation and removal
+cannot be cancelled halfway through. If a transfer fails, preserve the session
+logs and follow the recovery instructions before retrying. Check a new bank in
+an unsaved patch before saving it or combining it with other effects.
 
 ## Troubleshooting
 
-- Run from an extracted, writable folder, not inside the ZIP or under Program Files. Do not copy only the EXE.
-- A failed dependency download can be retried with **Build**. Check internet access and free disk space. Do not use `setup.ps1`; that script is for developers.
-- If CUDA is unavailable, the downloaded GPU build can still run on CPU; update the NVIDIA driver separately if appropriate for your hardware.
-- Close other programs using the Zoom MIDI port if connection checks fail. Confirm USB connection and supported firmware: 1.40 on MS-50G+, or 1.20 on MS-70CDR+ or MS-60B+.
-- Audio conversion quality and GPU speed vary by model and PC. More epochs are not a guarantee of a closer match.
+- Unsupported captures are rejected with a reason in the log.
+- For poor conversion quality, try more epochs or another capture and compare
+  the A/B previews before exporting.
+- If export fails, move the complete app folder to a writable location.
+- If GPU setup fails, CPU training remains available. Check the NVIDIA driver
+  and setup log before retrying.
+- If the app fails after moving it, check that the complete portable package
+  was extracted and that files from different releases were not mixed.

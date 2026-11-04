@@ -122,6 +122,12 @@ def build_intel_torch(python, work):
 def collect_licenses(resources, app, python_home):
     target = resources / "ThirdPartyLicenses"
     target.mkdir()
+    for name in ("LICENSE.txt", "TI-NOTICE.txt"):
+        shutil.copy2(ROOT / "third_party/waveformer-nam" / name, target / ("Waveformer-" + name))
+    shutil.copy2(resources / "runtime/node/LICENSE.txt", target / "Node.txt")
+    product_notice = ROOT / "apps/nam2zoom-avalonia/Assets/NOTICE.txt"
+    if product_notice.is_file():
+        shutil.copy2(product_notice, target / "Zoom-product-image.txt")
     dotnet = Path(shutil.which("dotnet")).resolve().parent
     for name in ("LICENSE.txt", "ThirdPartyNotices.txt"):
         shutil.copy2(dotnet / name, target / ("dotnet-" + name))
@@ -181,7 +187,10 @@ def build(rid, python, cuda=False, adhoc_sign=False):
     for directory in ("tools", "dsp", "training"):
         shutil.copytree(ROOT / directory, resources / directory,
                         ignore=shutil.ignore_patterns("__pycache__", "*.pyc"))
-    for profile, folder in (("compact", "templates"),):
+    shutil.copytree(ROOT / "third_party/waveformer-nam", resources / "third_party/waveformer-nam")
+    from node_runtime import package_node
+    package_node(resources, rid, ROOT / ".tooling/node-runtime-cache")
+    for profile, folder in (("compact", "templates"), ("lite", "templates-lite"), ("own-lite", "templates-own-lite"), ("own-lite-compact", "templates-own-lite-compact")):
         shutil.copytree(ROOT / "release/precompiled" / profile, resources / "release" / folder)
     stomp = resources / ".tooling/stomphacks"
     for folder in ("tools-pedal", "tools", "zoom-zt2"):
@@ -258,7 +267,7 @@ def build(rid, python, cuda=False, adhoc_sign=False):
             "Microsoft Visual C++ Runtime redistributable DLLs, supplied app-local from the build runner's licensed Visual Studio installation.\n"
             "Copyright Microsoft Corporation. Terms: https://visualstudio.microsoft.com/license-terms/\n")
     shutil.copy2(ROOT / "LICENSE", resources)
-    shutil.copy2(ROOT / "docs/PORTABLE.md", payload / "README.md")
+    shutil.copy2(ROOT / "docs/USER_GUIDE.md", payload / "README.md")
     if rid.startswith("osx"):
         import plistlib
         (app.parent / "Info.plist").write_bytes(plistlib.dumps({

@@ -1,7 +1,7 @@
 <Styles xmlns="https://github.com/avaloniaui" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
   <Styles.Resources>
-    <Color x:Key="SystemAccentColor">#4DA3FF</Color>
-    <SolidColorBrush x:Key="SystemControlHighlightAccentBrush">#4DA3FF</SolidColorBrush>
+    <Color x:Key="SystemAccentColor">#289DFF</Color>
+    <SolidColorBrush x:Key="SystemControlHighlightAccentBrush">#289DFF</SolidColorBrush>
     <ControlTheme x:Key="EpochArrowButton" TargetType="RepeatButton">
       <Setter Property="Background" Value="Transparent" />
       <Setter Property="BorderBrush" Value="#424E58" />
@@ -22,14 +22,14 @@
     </ControlTheme>
   </Styles.Resources>
   <Style Selector="Window">
-    <Setter Property="Background" Value="#111619" />
+    <Setter Property="Background" Value="#0C151D" />
     <Setter Property="Foreground" Value="#E9EDF2" />
     <Setter Property="FontSize" Value="14" />
   </Style>
   <Style Selector="Button, ToggleButton.profile">
-    <Setter Property="Background" Value="#222A30" />
+    <Setter Property="Background" Value="#17232D" />
     <Setter Property="Foreground" Value="#E9EDF2" />
-    <Setter Property="BorderBrush" Value="#3C464F" />
+    <Setter Property="BorderBrush" Value="#4B6173" />
     <Setter Property="BorderThickness" Value="1" />
     <Setter Property="CornerRadius" Value="6" />
     <Setter Property="Padding" Value="14,10" />
@@ -39,13 +39,13 @@
   </Style>
   <Style Selector="ToggleButton.profile:checked /template/ ContentPresenter#PART_ContentPresenter">
     <Setter Property="Background" Value="#183653" />
-    <Setter Property="BorderBrush" Value="#4DA3FF" />
+    <Setter Property="BorderBrush" Value="#289DFF" />
     <Setter Property="BorderThickness" Value="1" />
-    <Setter Property="Foreground" Value="#4DA3FF" />
+    <Setter Property="Foreground" Value="#289DFF" />
   </Style>
   <Style Selector="Button.primary">
-    <Setter Property="Background" Value="#4DA3FF" />
-    <Setter Property="Foreground" Value="#071A2D" />
+    <Setter Property="Background"><LinearGradientBrush StartPoint="0%,0%" EndPoint="0%,100%"><GradientStop Color="#309EFF" Offset="0"/><GradientStop Color="#276BFF" Offset="1"/></LinearGradientBrush></Setter>
+    <Setter Property="Foreground" Value="White" />
     <Setter Property="BorderBrush" Value="#76BAFF" />
     <Setter Property="FontWeight" Value="SemiBold" />
   </Style>
@@ -69,7 +69,7 @@
         <Border Name="EpochBorder" Background="{TemplateBinding Background}"
                 BorderBrush="{TemplateBinding BorderBrush}" BorderThickness="1"
                 CornerRadius="5" ClipToBounds="True">
-          <Grid ColumnDefinitions="*,68">
+          <Grid ColumnDefinitions="*,32">
             <TextBox Name="PART_TextBox" Text="{TemplateBinding Text}"
                      Background="Transparent" BorderThickness="0" CornerRadius="0"
                      MinHeight="0" Height="38" Padding="12,0"
@@ -78,14 +78,14 @@
                            Background="Transparent" BorderThickness="0" CornerRadius="0">
               <ButtonSpinner.Template>
                 <ControlTemplate>
-                  <Grid ColumnDefinitions="*,*">
-                    <RepeatButton Name="PART_IncreaseButton" Theme="{StaticResource EpochArrowButton}" MinHeight="0" Height="38" Padding="0"
+                  <Grid RowDefinitions="*,*">
+                    <RepeatButton Name="PART_IncreaseButton" Theme="{StaticResource EpochArrowButton}" MinHeight="0" Height="19" Padding="0"
                                   HorizontalContentAlignment="Center" VerticalContentAlignment="Center"
                                   BorderThickness="1,0,0,0" BorderBrush="#424E58"
                                   CornerRadius="0" Background="Transparent">
                       <PathIcon Width="12" Height="6" Data="M 0,5 L 6,0 L 12,5 L 11,6 L 6,2 L 1,6 Z" />
                     </RepeatButton>
-                    <RepeatButton Name="PART_DecreaseButton" Theme="{StaticResource EpochArrowButton}" Grid.Column="1" MinHeight="0" Height="38" Padding="0"
+                    <RepeatButton Name="PART_DecreaseButton" Theme="{StaticResource EpochArrowButton}" Grid.Row="1" MinHeight="0" Height="19" Padding="0"
                                   HorizontalContentAlignment="Center" VerticalContentAlignment="Center"
                                   BorderThickness="1,0,0,0" BorderBrush="#424E58"
                                   CornerRadius="0" Background="Transparent">
@@ -101,7 +101,7 @@
     </Setter>
   </Style>
   <Style Selector="NumericUpDown.epochs:focus-within /template/ Border#EpochBorder">
-    <Setter Property="BorderBrush" Value="#4DA3FF" />
+    <Setter Property="BorderBrush" Value="#289DFF" />
   </Style>
   <Style Selector="ListBox">
     <Setter Property="Background" Value="Transparent" />
@@ -128,4 +128,20 @@
     <Setter Property="FontWeight" Value="SemiBold" />
   </Style>
   <Style Selector="ToolTip"><Setter Property="MaxWidth" Value="420" /></Style>
+
+  <Style Selector="Button.nav">
+    <Setter Property="Height" Value="54"/><Setter Property="Background" Value="Transparent"/>
+    <Setter Property="BorderThickness" Value="0"/><Setter Property="Padding" Value="20,12"/>
+  </Style>
+  <Style Selector="Button.navactive">
+    <Setter Property="Background" Value="#123B65"/><Setter Property="BorderBrush" Value="#279FFF"/>
+    <Setter Property="BorderThickness" Value="5,0,0,0"/>
+  </Style>
+  <Style Selector="Button.danger">
+    <Setter Property="BorderBrush" Value="#75404D"/><Setter Property="Background" Value="#181C25"/>
+  </Style>
+  <Style Selector="ProgressBar"><Setter Property="Foreground" Value="#2C98FF"/><Setter Property="Background" Value="#1C2D3B"/></Style>
+  <Style Selector="CheckBox"><Setter Property="MinHeight" Value="24"/><Setter Property="Padding" Value="0"/></Style>
+  <Style Selector="ListBoxItem"><Setter Property="MinHeight" Value="44"/></Style>
+  <Style Selector="ListBoxItem:selected /template/ ContentPresenter#PART_ContentPresenter"><Setter Property="Background" Value="#153D62"/></Style>
 </Styles>

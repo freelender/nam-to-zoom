@@ -10,11 +10,44 @@ index b7aaa2b..b409459 100755
  
  # filter the --no-strip flag out of the positional args (may appear anywhere)
  STRIP=1
+diff --git a/tools/zd2_from_scratch.py b/tools/zd2_from_scratch.py
+index c5cd5c7..444eeba 100644
+--- a/tools/zd2_from_scratch.py
++++ b/tools/zd2_from_scratch.py
+@@ -62,7 +62,7 @@ OPAQUE_TRAILER_16 = bytes(16)
+ 
+ # Effect groups: the id's top byte, and the group name string the container
+ # carries. Same table as zoom-zt2's grammar and docs/effect-ids.md.
+-GROUP_NAMES = {1: "DYNAMICS", 2: "FILTER", 3: "DRIVE", 4: "AMP",
++GROUP_NAMES = {1: "DYNAMICS", 2: "FILTER", 3: "DRIVE", 4: "PREAMP",
+                5: "CABINET", 6: "MODULATION", 7: "SFX", 8: "DELAY",
+                9: "REVERB", 11: "PEDAL"}
+ 
 diff --git a/tools/zd2_make_effect.py b/tools/zd2_make_effect.py
-index d5d1d06..cc0f008 100644
+index 9d955ed..9fe4f3a 100644
 --- a/tools/zd2_make_effect.py
 +++ b/tools/zd2_make_effect.py
-@@ -1608,6 +1608,9 @@
+@@ -532,6 +532,10 @@ def load_manifest(path: Path) -> dict:
+     # The 2-letter author-prefix rule (see AUTHOR_PREFIXES above). Only
+     # judged once filename and id are individually well-formed, so a broken
+     # manifest reports its real problem instead of a spurious prefix one.
++    legacy_nam_bank = (m["filename"], m["id"].lower()) in {
++        ("N2ZBANK", "04001787"), ("N2ZBNK2", "04001387"),
++        ("N2ZBNK3", "04001397"),
++    }
+     author = m.setdefault("author", DEFAULT_AUTHOR)
+     if not isinstance(author, str):
+         problems.append("author must be a string (registry nickname)")
+@@ -549,7 +553,7 @@ def load_manifest(path: Path) -> dict:
+             playground = (int(m["id"], 16) & 0xFFFF) <= PLAYGROUND_LOW16_MAX
+             if playground:
+                 accepted.add(PLAYGROUND_PREFIX)
+-            if not m["filename"].startswith(tuple(accepted)):
++            if not legacy_nam_bank and not m["filename"].startswith(tuple(accepted)):
+                 problems.append(
+                     f"filename '{m['filename']}' must start with one of "
+                     f"{sorted(accepted)} for "
+@@ -1922,6 +1926,9 @@ def finalize_container(m: dict, builddir: Path, report: list) -> Path:
          assert zicp.exists(), "ICON swap requires the ZIC to be built first"
          zic = convert_zic.ZIC.parse(zicp.read_bytes())
          ilen = config["ICON"]["length"]
@@ -24,7 +57,7 @@ index d5d1d06..cc0f008 100644
          frame = next((bytes(d.data) for ic, d in zip(zic.icons, zic.datas)
                        if ic.bytes == ilen), None)
          config["ICON"]["data"] = frame if frame is not None else bytes(ilen)
-@@ -1684,10 +1684,15 @@ def finalize_container(m: dict, builddir: Path, report: list) -> Path:
+@@ -1996,11 +2003,16 @@ def finalize_container(m: dict, builddir: Path, report: list) -> Path:
  def make_icon(m: dict, builddir: Path, report: list) -> Path:
      """Fresh 1-bit icon frames (all pixels drawn here) in a ZIC built from
      scratch (the standard two-frame DIY geometry, tools/zd2_from_scratch.py)."""
@@ -42,7 +75,8 @@ index d5d1d06..cc0f008 100644
 +        (w, h, bytes(w * ((h + 7) // 8))) for w, h in geometry]))
      for old in builddir.glob("icon_*.png"):
          old.unlink()
-@@ -1696,23 +1696,55 @@ def make_icon(m: dict, builddir: Path, report: list) -> Path:
+     run([PY, ROOT / "zoom-zt2" / "convert_zic.py", "-p", "icon", zic.name],
+@@ -2008,23 +2020,55 @@ def make_icon(m: dict, builddir: Path, report: list) -> Path:
  
      frames = sorted(builddir.glob("icon_*.png"))
      assert frames, "convert_zic produced no frames"
@@ -113,7 +147,7 @@ index d5d1d06..cc0f008 100644
      run([PY, ROOT / "zoom-zt2" / "convert_zic.py", "-r", "-p", "icon",
           zic.name], cwd=builddir)
      # The pedal parses the icon too; assert its structure here so a
-@@ -1720,8 +1732,9 @@ def make_icon(m: dict, builddir: Path, report: list) -> Path:
+@@ -2032,8 +2076,9 @@ def make_icon(m: dict, builddir: Path, report: list) -> Path:
      # a malformed icon independently).
      zd2_from_scratch.verify_zic(zic.read_bytes())
      report.append(f"icon: {len(frames)} fresh frames (drawn here), "
@@ -125,15 +159,3 @@ index d5d1d06..cc0f008 100644
      return zic
  
  
-diff --git a/tools/zd2_from_scratch.py b/tools/zd2_from_scratch.py
---- a/tools/zd2_from_scratch.py
-+++ b/tools/zd2_from_scratch.py
-@@ -62,7 +62,7 @@ OPAQUE_TRAILER_16 = bytes(16)
- OPAQUE_TRAILER_16 = bytes(16)
- 
- # Effect groups: the id's top byte, and the group name string the container
- # carries. Same table as zoom-zt2's grammar and docs/effect-ids.md.
--GROUP_NAMES = {1: "DYNAMICS", 2: "FILTER", 3: "DRIVE", 4: "AMP",
-+GROUP_NAMES = {1: "DYNAMICS", 2: "FILTER", 3: "DRIVE", 4: "PREAMP",
-                5: "CABINET", 6: "MODULATION", 7: "SFX", 8: "DELAY",
-                9: "REVERB", 11: "PEDAL"}

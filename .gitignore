@@ -1,20 +1,46 @@
+# Local dependencies, training environments and build output
 .tooling/
 .vs/
+.idea/
+.venv/
+venv/
 **/bin/
 **/obj/
 **/__pycache__/
 **/*.py[cod]
+.pytest_cache/
+.ruff_cache/
 reference/nam_a2/build-core-ninja/
-Backup/
-Converted_NAM/
 dist/
 release/templates/
 n2z-bank-*/
+
+# User captures, queues, exports, device backups and credentials
+Backup/
+Converted_NAM/
+*.nam
+*.n2zqueue.json
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+
+# Generated effects (validated, weight-free templates are source assets)
 *.ZD2
 *.ZIC
 !release/precompiled/**/*.ZD2
 !release/precompiled/**/*.ZIC
+!third_party/waveformer-nam/*.ZD2
+
+# Local archives, diagnostics and editor/OS files
+*.zip
+*.7z
 *.out
+*.pdb
 *.user
 *.suo
 *.log
+.DS_Store
+Thumbs.db
+*~

@@ -231,7 +231,7 @@ internal sealed class MainForm : Form
     private readonly ToolTip disabledHelp = new();
     private Control? disabledHelpTarget;
     private const string EpochsHelp = "An epoch is one pass through the training audio. More epochs take longer and can improve how closely the converted model matches the original. 300 is the longest training option. This setting only applies when retraining is needed.";
-    private const string ModelHelp = "Compact: a smaller 14-layer model that leaves room for other pedal effects.\nA2 Lite is disabled pending further testing.";
+    private const string ModelHelp = "Compact: a smaller 14-layer model that leaves room for other pedal effects.\nLite (alone): the full A2 Lite architecture, retrained at 44.1 kHz. It uses the full pedal DSP budget; use it alone in the patch. Adding other effects can cause slowdown or crackling.";
     private const string PedalLabelHelp = "The model name shown in the pedal's Model selector. Use 1-5 characters: A-Z, 0-9, hyphen or underscore. Each model in the list needs a unique label.";
     private const string CabIrHelp = "An optional cabinet impulse response (IR) adds the sound of a speaker cabinet and microphone. Choose a mono WAV for the selected model. Leave it empty if your NAM already includes a cabinet or you use a separate cabinet effect.";
     private readonly List<ModelEntry> models = [];
@@ -257,7 +257,7 @@ internal sealed class MainForm : Form
     private readonly CheckBox backupCheck = new();
     private readonly NumericUpDown epochsInput = new();
     private readonly ComboBox modelProfileInput = new();
-    private string ModelProfile => "compact";
+    private string ModelProfile => modelProfileInput.SelectedIndex == 1 ? "lite" : "compact";
     private readonly Button previewButton = new RoundedButton();
     private readonly Button chooseIrButton = new RoundedButton();
     private readonly Button clearIrButton = new RoundedButton();
@@ -428,14 +428,14 @@ internal sealed class MainForm : Form
             Margin = new Padding(0, 11, 8, 0)
         });
         modelProfileInput.DropDownStyle = ComboBoxStyle.DropDownList;
-        modelProfileInput.Items.AddRange(["Compact"]);
+        modelProfileInput.Items.AddRange(["Compact", "Lite (alone)"]);
         modelProfileInput.SelectedIndex = 0;
         modelProfileInput.Width = 120;
         modelProfileInput.BackColor = SurfaceRaised;
         modelProfileInput.ForeColor = Foreground;
         modelProfileInput.Margin = new Padding(0, 6, 14, 0);
         modelProfileInput.AccessibleDescription =
-            "Compact can be used with other effects. A2 Lite is disabled pending further testing.";
+            "Compact can be used with other effects. Lite uses the full DSP budget and must run alone; patch saving/loading still needs testing.";
         modelProfileInput.SelectedIndexChanged += async (_, _) => await ChangeModelProfileAsync();
         buildOptions.Controls.Add(modelProfileInput);
         var buildCommands = new FlowLayoutPanel {
@@ -1129,11 +1129,11 @@ internal sealed class MainForm : Form
                 !m.Label.All(c => c <= 127 && (char.IsLetterOrDigit(c) || c is '-' or '_')))
                 || entries.Select(m => m.Label.ToUpperInvariant()).Distinct().Count() != entries.Count)
                 throw new InvalidDataException("List contains invalid or duplicate pedal labels");
-            if (entries.Any(m => m.ModelProfile != "compact")
+            if (entries.Any(m => m.ModelProfile is not ("compact" or "lite"))
                 || entries.Select(m => m.ModelProfile).Distinct().Count() > 1)
-                throw new InvalidDataException("Only Compact model lists are enabled; A2 Lite is disabled pending further testing.");
+                throw new InvalidDataException("List contains unsupported or mixed model profiles");
             models.Clear();
-            modelProfileInput.SelectedIndex = 0;
+            modelProfileInput.SelectedIndex = entries.FirstOrDefault()?.ModelProfile == "lite" ? 1 : 0;
             RefreshGrid();
             await AddProjectEntriesAsync(entries);
         } catch (Exception ex) { MessageBox.Show(this, ex.Message, "Open failed"); }
@@ -1373,7 +1373,7 @@ internal sealed class MainForm : Form
                 + "Supported targets are MS-50G+ firmware 1.40, MS-70CDR+ firmware 1.20, and MS-60B+ firmware 1.20. "
                 + (profile == "lite"
                     ? "Lite has been reported working alone on three captures. It reserves the full DSP budget; adding other effects caused slowdown and crackling. Patch saving/loading still needs testing.\n\n"
-                    : "The Compact bank has been hardware-tested on MS-50G+ and MS-70CDR+; MS-60B+ support is experimental.\n\n")
+                    : "Supported pedals are MS-50G+, MS-70CDR+, and MS-60B+.\n\n")
                 + (irLevelChanges.Count > 0
                     ? "Cab IR level reduction to avoid clipping: "
                       + string.Join(", ", irLevelChanges) + ". Expect a lower output level.\n\n"

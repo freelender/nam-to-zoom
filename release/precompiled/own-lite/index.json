@@ -1,0 +1,52 @@
+{
+  "format": "nam2zoom.templates.v1",
+  "banks": {
+    "1": {
+      "sha256": "f9db3d559ab2e00d42fc6dd264f378599ba954a8f481bed734b734b59f766944",
+      "weights_offset": 10375,
+      "labels_offset": 17863
+    },
+    "2": {
+      "sha256": "588d856c7ca25926a6a32196abc359d3f74c1fbd8f02094ab5af728807fbd102",
+      "weights_offset": 10375,
+      "labels_offset": 25343
+    },
+    "3": {
+      "sha256": "bed5c663bb551d663e86c1c09bfd5f785c05eba4739a3253e0225640c64afbfa",
+      "weights_offset": 10471,
+      "labels_offset": 32927
+    },
+    "4": {
+      "sha256": "d78bb2481cf235a6fc239528b84beb0a06480ec6e9c2cb2c08c471ed62fd7982",
+      "weights_offset": 10471,
+      "labels_offset": 40407
+    },
+    "5": {
+      "sha256": "e368a2f2114ce55131b9fdf160347ba3c9760b1e0327e7a358a9eb357e5f6922",
+      "weights_offset": 10471,
+      "labels_offset": 47895
+    }
+  },
+  "model_profile": "lite",
+  "reserved_dsp_load": 260,
+  "dsp_source_sha256": {
+    "dsp/nam_a2_own_host/host.c": "d3326c3fc150a7e2ee70309b4a69a4196338cfb83bf329ab895af5fc7a46c745",
+    "dsp/nam_a2_own_host/block4.c": "b3c3d3cb9af5f2fdebbf5eede3cd33fe3702a27dd3dabdfa2683b0c277e8ebeb",
+    "dsp/nam_a2_own_host/block4.h": "b9dca5033f04810e65a0392a4b7dd70e043dda5599ef1887a071bcd71632448e",
+    "dsp/nam_a2_own_host/compact_runtime.h": "73d47a8290ad20abf77e5d0b2e50b717f0686a70c8bac6065e09327bdc93d8fd",
+    "dsp/nam_a2_own_host/compact_filters.h": "64c0fa5180547594cdd78530b069293d6454aa80b6cc053ba49c2aa0c4ca1a16",
+    "dsp/nam_a2_lite/compact_kernel.h": "c6bbd0db657c3b819c97cd0d8ea575dd4aa07d2253aedc921b4a912a452af5e2"
+  },
+  "control_layout": "nam2zoom-seven-v1",
+  "effect_mode": "full",
+  "coefficient_slots": {
+    "Model": 12,
+    "Gain": 13,
+    "Volume": 8,
+    "Mix": 9,
+    "Bass": 5,
+    "Middle": 6,
+    "Treble": 7
+  },
+  "icon_sha256": "5a8e36db1d3dcd2d49ce7b77e30c362017b6856fb3cd0284b2c2f6afa516baf8"
+}

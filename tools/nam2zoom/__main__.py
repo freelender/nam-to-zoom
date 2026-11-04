@@ -39,6 +39,16 @@ def main() -> int:
     bank.add_argument("--profile", choices=ENABLED_PROFILES, default="compact")
     bank.add_argument("--prepare-only", action="store_true")
 
+    ready = sub.add_parser("build-ready-effect", help="build nam2zoom's seven-control full A2 Lite 44.1 kHz host locally")
+    ready.add_argument("models", nargs="+", type=Path)
+    ready.add_argument("--label", action="append", dest="labels")
+    ready.add_argument("--output", type=Path, required=True)
+    ready.add_argument("--effect-slot", type=int, choices=(1, 2, 3), default=1)
+    ready.add_argument("--effect-name")
+    ready.add_argument("--no-name-artwork", action="store_true")
+    ready.add_argument("--profile", choices=("lite",), default="lite")
+    ready.add_argument("--compact-effect", action="store_true", help="lower-rate pedal runtime; retrained NAM files stay full A2 Lite 44.1 kHz")
+
     install = sub.add_parser("install-bank", help="guarded MS Plus bank replacement")
     install.add_argument("effect", type=Path)
     install.add_argument("--session", type=Path, required=True)
@@ -49,6 +59,7 @@ def main() -> int:
 
     uninstall = sub.add_parser("uninstall-bank", help="guarded MS Plus bank removal")
     uninstall.add_argument("--session", type=Path, required=True)
+    uninstall.add_argument("--effect-slot", type=int, choices=(1, 2, 3), default=1)
     uninstall.add_argument("--no-backup", action="store_true")
     uninstall.add_argument("--ack-risk", action="store_true")
 
@@ -74,6 +85,14 @@ def main() -> int:
                     digest = hashlib.sha256(artifact.read_bytes()).hexdigest()
                     print(f"{artifact}: SHA-256 {digest}")
             print("Offline build only; no pedal upload was attempted")
+        elif args.command == "build-ready-effect":
+            from .own_host import build_ready_effect
+            effect = build_ready_effect(args.models, args.labels, args.output, compact_effect=args.compact_effect,
+                                        effect_slot=args.effect_slot, effect_name=args.effect_name,
+                                        name_artwork=not args.no_name_artwork)
+            for artifact in (effect, effect.with_suffix(".ZIC")):
+                print(f"{artifact}: SHA-256 {hashlib.sha256(artifact.read_bytes()).hexdigest()}")
+            print("Offline build only; no pedal upload was attempted")
         elif args.command == "install-bank":
             if not args.ack_risk:
                 parser.error("install requires --ack-risk")
@@ -86,7 +105,7 @@ def main() -> int:
                 parser.error("uninstall requires --ack-risk")
             from .deploy import uninstall_bank
 
-            uninstall_bank(args.session, full_backup=not args.no_backup)
+            uninstall_bank(args.session, full_backup=not args.no_backup, slot_number=args.effect_slot)
     except (OSError, ValueError, RuntimeError, subprocess.CalledProcessError) as exc:
         print(f"nam2zoom: {args.command} failed: {exc}", file=sys.stderr)
         return 2

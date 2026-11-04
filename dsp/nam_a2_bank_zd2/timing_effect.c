@@ -2,6 +2,11 @@
  * Uses the Plus production ABI and callback, including its startup safeguards.
  * After one measurement the network stays parked; bypass/on starts a new run. */
 #include "sh_params.h"
+#ifndef N2Z_READ_CLOCK
+#include <c6x.h>
+#define N2Z_READ_CLOCK() ((uint32_t)TSCL)
+#endif
+#define N2Z_PROFILE_CLOCK() N2Z_READ_CLOCK()
 #undef SH_AUDIO_FN
 #define SH_AUDIO_FN n2z_measured_audio
 #pragma FUNC_CANNOT_INLINE(n2z_measured_audio)
@@ -9,13 +14,13 @@
 #undef SH_AUDIO_FN
 #define SH_AUDIO_FN Fx_SFX_N2ZBank
 
-#ifndef N2Z_READ_CLOCK
-#include <c6x.h>
-#define N2Z_READ_CLOCK() ((uint32_t)TSCL)
-#endif
 #include "timing_config.h"
 #define TIMING_MAGIC 0x54494D31u
+#ifdef N2Z_PROFILE_COMPONENTS
+#define PACKET_WORDS 27u
+#else
 #define PACKET_WORDS 19u
+#endif
 #define CAL_BLOCKS 2048u
 #define RUN_BLOCKS 4096u
 
@@ -36,12 +41,22 @@ typedef struct {
     TickSum total, arrival_total;
     uint32_t count, previous, have_previous, minimum, maximum, overhead, warm_calls;
     uint32_t arrival_min, arrival_max, idle_mean, idle_min, idle_max;
+#ifdef N2Z_PROFILE_COMPONENTS
+    TickSum component_total[4];
+    uint32_t component_max[4];
+#endif
 } TimingStats;
 typedef struct {
     uint32_t magic, stage, sample, phase;
     union { TimingStats stats; uint32_t packet[PACKET_WORDS]; } data;
 } TimingMeter;
+#ifdef N2Z_PROFILE_COMPONENTS
+/* Firmware scratch is bounded. Keep only network state there; profiling
+ * statistics use a checked tail of the host-managed history arena. */
+typedef struct { EffectState net; } TimingState;
+#else
 typedef struct { EffectState net; TimingMeter meter; } TimingState;
+#endif
 typedef char timing_fits[(sizeof(TimingState) <= SH_STATE_BYTES) ? 1 : -1];
 
 /* Constant unsigned division without a firmware/runtime-library dependency.
@@ -71,7 +86,7 @@ static void finish(TimingMeter *m, uint32_t status)
     for (i = 0; i < sizeof(saved) / sizeof(uint32_t); ++i) dst[i] = src[i];
     for (i = 0; i < PACKET_WORDS; ++i) m->data.packet[i] = 0u;
     m->data.packet[0] = 0x4e32545au;
-    m->data.packet[1] = 1u;
+    m->data.packet[1] = PACKET_WORDS==27u ? 2u : 1u;
     m->data.packet[2] = N2Z_TIMING_VARIANT;
     m->data.packet[3] = status;
     m->data.packet[4] = status == 0u ? RUN_BLOCKS : 0u;
@@ -90,6 +105,12 @@ static void finish(TimingMeter *m, uint32_t status)
     }
     m->data.packet[16] = saved.warm_calls;
     m->data.packet[17] = N2Z_TIMING_MODEL_TAG;
+#ifdef N2Z_PROFILE_COMPONENTS
+    if(status==0u) for(i=0;i<4u;++i) {
+        m->data.packet[18u+2u*i]=sum_shift(saved.component_total[i],12u);
+        m->data.packet[19u+2u*i]=saved.component_max[i];
+    }
+#endif
     for (i = 0; i < PACKET_WORDS - 1u; ++i) {
         uint32_t word = m->data.packet[i];
         for (byte = 0; byte < 4u; ++byte) {
@@ -99,7 +120,7 @@ static void finish(TimingMeter *m, uint32_t status)
                 crc = (crc >> 1) ^ (0xedb88320u & (0u - (crc & 1u)));
         }
     }
-    m->data.packet[18] = crc ^ 0xffffffffu;
+    m->data.packet[PACKET_WORDS-1u] = crc ^ 0xffffffffu;
     m->stage = 3u;
     m->sample = m->phase = 0u;
 }
@@ -133,9 +154,28 @@ void SH_AUDIO_FN(void **instance, void **ctx)
     bus = (float *)ctx[SH_CTX_EFF];
     s = (TimingState *)instance[2];
     if (((const uint32_t *)s)[SH_STATE_GUARD_WORD] != SH_STATE_GUARD) return;
-    m = &s->meter;
     coeff = (float *)instance[1];
+#ifdef N2Z_PROFILE_COMPONENTS
+    if (coeff[SH_COEFF_BYPASS] < 0.99f) { s->net.profile_session=0u; return; }
+    {
+        uintptr_t descriptor_address=(uintptr_t)instance[3], base, end;
+        const uint32_t *descriptor;
+        uint32_t span;
+        if(!descriptor_address || (descriptor_address & 3u)) { silence(bus); return; }
+        descriptor=(const uint32_t*)descriptor_address;
+        base=(uintptr_t)descriptor[0]; end=(uintptr_t)descriptor[1]; span=descriptor[2];
+        if(!base || (base & 3u) || end<=base || end-base!=span ||
+           span<HISTORY_BYTES+sizeof(TimingMeter)) { silence(bus); return; }
+        m=(TimingMeter*)(base+HISTORY_BYTES);
+        if(s->net.profile_session!=TIMING_MAGIC) {
+            m->magic=0u;
+            s->net.profile_session=TIMING_MAGIC;
+        }
+    }
+#else
+    m = &s->meter;
     if (coeff[SH_COEFF_BYPASS] < 0.99f) { m->magic = 0u; return; }
+#endif
     now = N2Z_READ_CLOCK();
     if (m->magic != TIMING_MAGIC) {
         uint32_t *p = (uint32_t *)m;
@@ -150,7 +190,14 @@ void SH_AUDIO_FN(void **instance, void **ctx)
     if (!(coeff[0] <= 1.0f && coeff[0] >= 0.99f) || coeff[SH_PARAM_MODEL] != 0.0f ||
         coeff[SH_PARAM_MIX] != 1.0f || coeff[SH_PARAM_BASS] != 0.5f ||
         coeff[SH_PARAM_MID] != 0.5f || coeff[SH_PARAM_TREBLE] != 0.5f ||
-        coeff[SH_PARAM_VOL] != 0.5f || coeff[SH_PARAM_INPUT] != 0.5f) {
+        coeff[SH_PARAM_VOL] != 0.5f
+#ifdef SH_PARAM_INPUT
+        || coeff[SH_PARAM_INPUT] != 0.5f
+#endif
+#ifdef SH_PARAM_GAIN
+        || coeff[SH_PARAM_GAIN] != 0.5f
+#endif
+        ) {
         finish(m, 4u); silence(bus); return;
     }
     elapsed = now - m->data.stats.previous; /* unsigned arithmetic handles TSCL rollover */
@@ -186,6 +233,9 @@ void SH_AUDIO_FN(void **instance, void **ctx)
         if (elapsed < m->data.stats.arrival_min) m->data.stats.arrival_min = elapsed;
         if (elapsed > m->data.stats.arrival_max) m->data.stats.arrival_max = elapsed;
     }
+#ifdef N2Z_PROFILE_COMPONENTS
+    for(i=0;i<4u;++i) s->net.profile_ticks[i]=0u;
+#endif
     now = N2Z_READ_CLOCK();
     n2z_measured_audio(instance, ctx);
     end = N2Z_READ_CLOCK();
@@ -194,6 +244,13 @@ void SH_AUDIO_FN(void **instance, void **ctx)
         finish(m, 2u); return;
     }
     sum_add(&m->data.stats.total, cost);
+#ifdef N2Z_PROFILE_COMPONENTS
+    for(i=0;i<4u;++i) {
+        uint32_t ticks=s->net.profile_ticks[i];
+        sum_add(&m->data.stats.component_total[i],ticks);
+        if(ticks>m->data.stats.component_max[i]) m->data.stats.component_max[i]=ticks;
+    }
+#endif
     if (cost < m->data.stats.minimum) m->data.stats.minimum = cost;
     if (cost > m->data.stats.maximum) m->data.stats.maximum = cost;
     if (++m->data.stats.count == RUN_BLOCKS) {

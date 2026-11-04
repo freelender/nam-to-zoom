@@ -1,0 +1,53 @@
+{
+  "format": "nam2zoom.templates.v1",
+  "banks": {
+    "1": {
+      "sha256": "aa90ddad3e6de2670a2cd0de883ebd014f70dcb2405cc37fa0337d4ed8997b6c",
+      "weights_offset": 12359,
+      "labels_offset": 19847
+    },
+    "2": {
+      "sha256": "79e6256586f9d4c986a303eb54bf660e98e72bb36d2c1868440a428eacff838a",
+      "weights_offset": 12359,
+      "labels_offset": 27327
+    },
+    "3": {
+      "sha256": "5dad6c09930737f7dd34b7dac7270debaa66aac404c57967014033b75d8e0965",
+      "weights_offset": 12455,
+      "labels_offset": 34911
+    },
+    "4": {
+      "sha256": "e52ecf722d61368c37fe8871b8c4c30a3100b2e46ce9bd29e6a34dac177578cf",
+      "weights_offset": 12455,
+      "labels_offset": 42391
+    },
+    "5": {
+      "sha256": "2c796c3e6335bf479d0f19c95f1134e3ca5125bfed35470b842e8e2d6351c1b0",
+      "weights_offset": 12455,
+      "labels_offset": 49879
+    }
+  },
+  "model_profile": "lite",
+  "reserved_dsp_load": 190,
+  "dsp_source_sha256": {
+    "dsp/nam_a2_own_host/host.c": "d3326c3fc150a7e2ee70309b4a69a4196338cfb83bf329ab895af5fc7a46c745",
+    "dsp/nam_a2_own_host/compact_block.c": "2e1d01bf87d1e0f1df53df1c638aed323692e5b5b22043da85b5d044f00b9eaf",
+    "dsp/nam_a2_own_host/block4.h": "b9dca5033f04810e65a0392a4b7dd70e043dda5599ef1887a071bcd71632448e",
+    "dsp/nam_a2_own_host/compact_runtime.h": "73d47a8290ad20abf77e5d0b2e50b717f0686a70c8bac6065e09327bdc93d8fd",
+    "dsp/nam_a2_own_host/compact_filters.h": "64c0fa5180547594cdd78530b069293d6454aa80b6cc053ba49c2aa0c4ca1a16",
+    "dsp/nam_a2_lite/compact_kernel.h": "c6bbd0db657c3b819c97cd0d8ea575dd4aa07d2253aedc921b4a912a452af5e2"
+  },
+  "control_layout": "nam2zoom-seven-v1",
+  "effect_mode": "compact",
+  "coefficient_slots": {
+    "Model": 12,
+    "Gain": 13,
+    "Volume": 8,
+    "Mix": 9,
+    "Bass": 5,
+    "Middle": 6,
+    "Treble": 7
+  },
+  "artwork_variant": "amp-compact-v1",
+  "icon_sha256": "cae335783654a863979bfe9b3391fbcd4f221bbe7be1c31e6292167f698f95e3"
+}
