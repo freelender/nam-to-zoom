@@ -57,14 +57,14 @@ jobs:
         env:
           BUNDLE_CUDA: ${{ inputs.windows_cuda }}
         run: |
-          $buildArgs = @('release/build_cross_platform.py', '--rid', '${{ matrix.rid }}', '--python', $env:BUILD_PYTHON)
+          $buildArgs = @('release/build_cross_platform.py', '--rid', '${{ matrix.rid }}', '--python', $env:BUILD_PYTHON, '--thin')
           if ('${{ matrix.rid }}' -eq 'win-x64' -and $env:BUNDLE_CUDA -eq 'true') { $buildArgs += '--cuda' }
           & $env:BUILD_PYTHON @buildArgs
           if ($LASTEXITCODE -ne 0) { throw 'Portable build/validation failed' }
       - name: Run repository regressions and mock installer tests
         shell: pwsh
         run: |
-          & $env:BUILD_PYTHON release/run_ci_tests.py --rid '${{ matrix.rid }}'
+          & $env:BUILD_PYTHON release/run_ci_tests.py --rid '${{ matrix.rid }}' --thin
           if ($LASTEXITCODE -ne 0) { throw 'Regression tests failed' }
       - uses: actions/upload-artifact@v7
         with:
@@ -72,6 +72,7 @@ jobs:
           path: |
             dist/cross-platform/*.zip
             dist/cross-platform/*.sha256
+            dist/cross-platform/*-python.tar.gz
           if-no-files-found: error
           compression-level: 0
   release:
@@ -87,7 +88,7 @@ jobs:
           pattern: nam2zoom-*
           merge-multiple: true
           path: artifacts
-      - name: Publish the two verified packages
+      - name: Stage verified apps and first-run runtimes in a draft
         env:
           GH_TOKEN: ${{ github.token }}
           GH_REPO: ${{ github.repository }}
@@ -96,6 +97,7 @@ jobs:
         run: |
           set -euo pipefail
           test "$(find artifacts -maxdepth 1 -name '*.zip' | wc -l)" -eq 2
+          test "$(find artifacts -maxdepth 1 -name '*-python.tar.gz' | wc -l)" -eq 2
           if ! gh release view "$VERSION_TAG" >/dev/null 2>&1; then
             notes="$(mktemp)"
             awk -v version="${VERSION_TAG#v}" '
@@ -103,9 +105,10 @@ jobs:
               active { print }
             ' CHANGELOG.md > "$notes"
             if [ -s "$notes" ]; then
-              gh release create "$VERSION_TAG" --verify-tag --title "nam2zoom $VERSION_TAG" --notes-file "$notes"
+              gh release create "$VERSION_TAG" --draft --verify-tag --title "nam2zoom $VERSION_TAG" --notes-file "$notes"
             else
-              gh release create "$VERSION_TAG" --verify-tag --title "nam2zoom $VERSION_TAG" --notes 'Portable cross-platform preview. macOS apps are unsigned/unnotarized; macOS USB-MIDI hardware verification is pending. See the included README for supported security approval and pedal safety instructions.'
+              gh release create "$VERSION_TAG" --draft --verify-tag --title "nam2zoom $VERSION_TAG" --notes 'Portable cross-platform preview. macOS apps are unsigned/unnotarized; macOS USB-MIDI hardware verification is pending. See the included README for supported security approval and pedal safety instructions.'
             fi
           fi
-          gh release upload "$VERSION_TAG" artifacts/*.zip artifacts/*.sha256
+          test "$(gh release view "$VERSION_TAG" --json isDraft --jq .isDraft)" = true
+          gh release upload "$VERSION_TAG" artifacts/*-python.tar.gz artifacts/*.zip artifacts/*.sha256

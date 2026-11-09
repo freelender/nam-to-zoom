@@ -6,6 +6,8 @@ from pathlib import Path
 import shutil
 import subprocess
 import sys
+import json
+import tarfile
 import tempfile
 import unittest
 from unittest.mock import patch
@@ -14,10 +16,32 @@ import zipfile
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "release"))
-from build_cross_platform import archive_payload, build_intel_torch
+from build_cross_platform import archive_payload, build_intel_torch, split_runtime
 
 
 class ReleaseBuildTests(unittest.TestCase):
+    def test_split_runtime_carries_licenses_in_both_downloads(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            payload = root / "full"
+            output = root / "dist" / "nam2zoom-test"
+            python = payload / "runtime/python"
+            python.mkdir(parents=True)
+            (python / "LICENSE.txt").write_text("Python license")
+            (payload / "LICENSE").write_text("App license")
+            notices = payload / "ThirdPartyLicenses"
+            notices.mkdir()
+            (notices / "README.md").write_text("Dependency notices")
+            archive = split_runtime(payload, output, "win-x64", "2.0.0")
+            self.assertFalse((output / "runtime/python").exists())
+            manifest = json.loads((output / "runtime/download.json").read_text())
+            self.assertEqual(manifest["sha256"], hashlib.sha256(archive.read_bytes()).hexdigest())
+            self.assertEqual(manifest["size"], archive.stat().st_size)
+            with tarfile.open(archive) as runtime:
+                for name in ("LICENSE", "ThirdPartyLicenses/README.md"):
+                    self.assertEqual(runtime.extractfile(name).read(), (output / name).read_bytes())
+                self.assertEqual(runtime.extractfile("python/LICENSE.txt").read(), b"Python license")
+
     def test_pytorch_patch_pins_both_cmake_interpreter_names(self):
         if not shutil.which("git"):
             self.skipTest("Git unavailable")

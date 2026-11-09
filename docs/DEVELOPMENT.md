@@ -83,8 +83,19 @@ the build checks relocation, startup, training, rendering, export and both effec
 modes. The packaged README comes from the [user guide](USER_GUIDE.md).
 
 Set the release version in `Directory.Build.props` and document changes in
-[CHANGELOG.md](../CHANGELOG.md). CI publishes tagged Windows and Apple Silicon
-packages. Retain all bundled dependency licenses and notices.
+[CHANGELOG.md](../CHANGELOG.md). CI stages tagged Windows and Apple Silicon
+packages in a GitHub release draft. Before making it public, review the
+[third-party notices](../release/THIRD_PARTY.md), verify the redistribution
+rights for the exact bundled binaries and artwork, and attach any required
+corresponding source. Both the app ZIP and runtime archive carry the project
+license and collected third-party notices.
+
+CI builds with `--thin`. This keeps the app ZIP small and produces a separate
+`-python.tar.gz` release asset for each platform. The app downloads that archive
+from the matching GitHub release, verifies its SHA-256 and caches it in user
+data. To test a local thin build before publishing its runtime, run the app
+executable with `--install-runtime <path-to-python.tar.gz>`. Omit `--thin` to
+build a package that includes Python and can start offline.
 
 ## Tests
 
@@ -101,6 +112,8 @@ After a portable build, run the CI checks with:
 ```text
 python release/run_ci_tests.py --rid win-x64
 ```
+
+Pass `--thin` to the test command if the package was built with that flag.
 
 Native callback tests require Clang and a 32-bit host ABI. macOS skips those
 replays. Deployment tests use mocked devices and must not write to a pedal.

@@ -4,7 +4,9 @@
 
 Extract the complete portable package into a writable folder. On Windows, run
 `nam2zoom.exe`; on macOS, open `nam2zoom.app`. Keep the bundled files together.
-Python, the renderer and CPU training dependencies are included.
+The release ZIP downloads Python and its dependencies on first launch. An
+internet connection is required for setup. Later launches reuse the installed
+runtime and can convert and build effects offline.
 
 Windows can use CPU or NVIDIA CUDA training. GPU setup requires internet access
 and a compatible NVIDIA driver. macOS uses CPU training. macOS packages are

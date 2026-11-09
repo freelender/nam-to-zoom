@@ -1,12 +1,12 @@
 # Changelog
 
-## Unreleased
-
-- Open the NAM loader directly at sym.bios.is and clarify that the site does not host or share retrained NAM models.
-- Improve Compact's agreement with Full using corrected internal tap delays, while preserving the same 44.1 kHz NAM files and retraining workflow.
-
 ## 2.0.0
 
+- Ship smaller Windows and macOS app ZIPs with a verified Python runtime download on first launch.
+- Cache the installed runtime so future launches work offline.
+- Include license and copyright notices in both downloads.
+- Open the NAM loader directly at sym.bios.is and clarify that the site does not host or share retrained NAM models.
+- Improve Compact's agreement with Full using corrected internal tap delays, while preserving the same 44.1 kHz NAM files and retraining workflow.
 - Show the sidebar pedal artwork and Plus-pedal compatibility list only on the Build effect page.
 - Center the pedal artwork horizontally in the sidebar.
 

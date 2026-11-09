@@ -1,4 +1,5 @@
 using Avalonia;
+using Avalonia.Controls;
 using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Themes.Fluent;
 using Nam2ZoomDesktop;
@@ -10,6 +11,12 @@ internal static class Program
     [STAThread]
     public static int Main(string[] args)
     {
+        if (args.Length == 2 && args[0] == "--install-runtime") {
+            var bootstrap = new AppPaths().Bootstrap
+                ?? throw new InvalidOperationException("This package already bundles Python.");
+            bootstrap.InstallAsync(Console.WriteLine, default, args[1]).GetAwaiter().GetResult();
+            return 0;
+        }
         if (args.Length == 2 && args[0] == "--effect-slots-smoke-test") {
             var paths = new AppPaths();
             var service = new ReadyEffectService(paths, new BackendService(paths));
@@ -74,11 +81,22 @@ public sealed class App : Application
     public override void OnFrameworkInitializationCompleted()
     {
         if (ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop) {
-            desktop.MainWindow = new MainWindow();
+            var paths = new AppPaths();
+            var bootstrap = paths.Bootstrap;
+            if (bootstrap is { IsReady: false }) {
+                var setup = new RuntimeSetupWindow(bootstrap, paths.LocalRuntimeArchive, () => {
+                    var main = new MainWindow();
+                    desktop.MainWindow = main;
+                    main.Show();
+                });
+                desktop.MainWindow = setup;
+            } else {
+                desktop.MainWindow = new MainWindow();
+            }
             if (SmokeGui && Environment.GetEnvironmentVariable("NAM2ZOOM_GUI_CANCEL_PYTHON") is null) desktop.MainWindow.Opened += async (_, _) => {
                 await Task.Delay(1000);
                 if (Environment.GetEnvironmentVariable("NAM2ZOOM_GUI_SCREENSHOT") is { Length: > 0 } screenshot) {
-                    var window = desktop.MainWindow;
+                    var window = desktop.MainWindow!;
                     using var bitmap = new Avalonia.Media.Imaging.RenderTargetBitmap(
                         new PixelSize((int)window.ClientSize.Width, (int)window.ClientSize.Height), new Vector(96, 96));
                     bitmap.Render(window);

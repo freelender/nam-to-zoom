@@ -39,8 +39,9 @@ same full A2 Lite 44.1 kHz format, regardless of build mode.
 ## Getting started
 
 Extract the complete portable package into a writable folder and run
-`nam2zoom.exe` or open `nam2zoom.app`. Keep the bundled files together. No pedal
-connection is needed for retraining.
+`nam2zoom.exe` or open `nam2zoom.app`. Keep the bundled files together. First
+launch downloads Python and the training dependencies. No pedal connection is
+needed for retraining.
 
 - [User guide](docs/USER_GUIDE.md): retraining, sharing and pedal installation.
 - [Development](docs/DEVELOPMENT.md): source builds, tests and packaging.

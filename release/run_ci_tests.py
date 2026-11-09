@@ -9,10 +9,12 @@ import xml.etree.ElementTree as ET
 ROOT = Path(__file__).resolve().parents[1]
 parser = argparse.ArgumentParser()
 parser.add_argument("--rid", required=True)
+parser.add_argument("--thin", action="store_true")
 args = parser.parse_args()
 version = ET.parse(ROOT / "Directory.Build.props").findtext("PropertyGroup/Version")
 label = {"win-x64": "windows-x64", "osx-x64": "macos-x64", "osx-arm64": "macos-arm64"}[args.rid]
-payload = ROOT / "dist/cross-platform" / f"nam2zoom-v{version}-{label}"
+build_root = ROOT / (f".tooling/cross-build-{args.rid}/verified" if args.thin else "dist/cross-platform")
+payload = build_root / f"nam2zoom-v{version}-{label}"
 resources = payload if args.rid == "win-x64" else payload / "nam2zoom.app/Contents/Resources"
 python = resources / ("runtime/python/python.exe" if args.rid == "win-x64" else "runtime/python/bin/python3")
 env = os.environ.copy()

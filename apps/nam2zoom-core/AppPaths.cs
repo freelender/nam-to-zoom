@@ -6,6 +6,8 @@ public sealed class AppPaths
     public string Data { get; }
     public string Python { get; }
     public string DefaultTrainer { get; }
+    public RuntimeBootstrap? Bootstrap { get; }
+    public string? LocalRuntimeArchive { get; }
     public string TrainingPreference => Path.Combine(Data, "training", "device.txt");
     public string CudaTrainer => Path.Combine(Data, "training", "cuda-venv", "Scripts", "python.exe");
     public string TrainingDevice => File.Exists(TrainingPreference) ? File.ReadAllText(TrainingPreference).Trim() : "auto";
@@ -16,20 +18,29 @@ public sealed class AppPaths
     public AppPaths(string? resources = null, string? data = null)
     {
         Resources = resources ?? FindResources();
+        var runtime = Path.Combine(Resources, "runtime");
+        var localTestRoot = File.Exists(Path.Combine(runtime, "local-test.marker"))
+            ? Path.GetFullPath(Path.Combine(Resources, ".."))
+            : null;
+        if (localTestRoot is not null)
+            LocalRuntimeArchive = Path.Combine(localTestRoot, "python-runtime.tar.gz");
         Data = data ?? Environment.GetEnvironmentVariable("NAM2ZOOM_DATA_DIR")
+            ?? (localTestRoot is null ? null : Path.Combine(localTestRoot, "test-data"))
             ?? (OperatingSystem.IsMacOS()
                 ? Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), "Library", "Application Support", "nam2zoom")
                 : Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "nam2zoom"));
         Data = Path.GetFullPath(Data);
-        var bundled = Path.Combine(Resources, "runtime", "python");
-        Python = File.Exists(Path.Combine(Resources, "runtime", "portable.marker"))
-            ? PythonAt(bundled, false)
+        var manifest = Path.Combine(runtime, "download.json");
+        if (File.Exists(manifest)) Bootstrap = RuntimeBootstrap.Load(manifest, Data);
+        var portable = File.Exists(Path.Combine(runtime, "portable.marker"));
+        Python = portable
+            ? PythonAt(Bootstrap?.PythonHome ?? Path.Combine(runtime, "python"), false)
             : PythonAt(Path.Combine(Resources, ".tooling", "stomphacks", ".venv"), true);
-        DefaultTrainer = File.Exists(Path.Combine(Resources, "runtime", "portable.marker"))
+        DefaultTrainer = portable
             ? Python : PythonAt(Path.Combine(Resources, ".tooling", "nam-train-venv"), true);
     }
 
-    private static string PythonAt(string directory, bool venv) => OperatingSystem.IsWindows()
+    internal static string PythonAt(string directory, bool venv) => OperatingSystem.IsWindows()
         ? Path.Combine(directory, venv ? "Scripts" : "", "python.exe")
         : Path.Combine(directory, "bin", "python3");
 

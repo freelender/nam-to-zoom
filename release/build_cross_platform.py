@@ -1,6 +1,6 @@
 """Target-native portable packaging. Requires uv, git, CMake and .NET 10 on CI.
 
-No TI tools, Apple secrets, local venvs or end-user downloads are used.
+No TI tools, Apple secrets or local venvs are used.
 """
 import argparse
 import hashlib
@@ -11,6 +11,8 @@ import platform
 import shutil
 import subprocess
 import sys
+import tarfile
+import tempfile
 import time
 import xml.etree.ElementTree as ET
 
@@ -122,6 +124,10 @@ def build_intel_torch(python, work):
 def collect_licenses(resources, app, python_home):
     target = resources / "ThirdPartyLicenses"
     target.mkdir()
+    shutil.copy2(ROOT / "release/THIRD_PARTY.md", target / "README.md")
+    shutil.copy2(ROOT / "release/dependencies.json", target / "dependency-sources.json")
+    shutil.copytree(ROOT / "patches", target / "patches")
+    shutil.copy2(resources / "runtime/installed-packages.txt", target)
     for name in ("LICENSE.txt", "TI-NOTICE.txt"):
         shutil.copy2(ROOT / "third_party/waveformer-nam" / name, target / ("Waveformer-" + name))
     shutil.copy2(resources / "runtime/node/LICENSE.txt", target / "Node.txt")
@@ -159,7 +165,7 @@ def collect_licenses(resources, app, python_home):
     (target / "nuget-packages.json").write_text(json.dumps(assets["libraries"], indent=2))
 
 
-def build(rid, python, cuda=False, adhoc_sign=False):
+def build(rid, python, cuda=False, adhoc_sign=False, thin=False):
     expected = {"win-x64": ("Windows", "amd64"), "osx-arm64": ("Darwin", "arm64"), "osx-x64": ("Darwin", "x86_64")}
     system, machine = expected[rid]
     if platform.system() != system or platform.machine().lower() != machine:
@@ -171,9 +177,11 @@ def build(rid, python, cuda=False, adhoc_sign=False):
     label = {"win-x64": "windows-x64", "osx-arm64": "macos-arm64", "osx-x64": "macos-x64"}[rid]
     name = f"nam2zoom-v{version}-{label}"
     work = ROOT / ".tooling" / ("cross-build-" + rid)
-    payload = ROOT / "dist/cross-platform" / name
-    if payload.exists() or (payload.parent / (name + ".zip")).exists():
-        raise FileExistsError(f"Output exists: {payload}; preserve it or choose a new version")
+    output = ROOT / "dist/cross-platform" / name
+    payload = work / "verified" / name if thin else output
+    if any(path.exists() for path in (payload, output, output.with_name(name + ".zip"),
+                                       output.with_name(name + "-python.tar.gz"))):
+        raise FileExistsError(f"Output exists: {output}; preserve it or choose a new version")
     work.mkdir(parents=True, exist_ok=True)
     payload.mkdir(parents=True)
     checkout_dependencies()
@@ -289,7 +297,49 @@ def build(rid, python, cuda=False, adhoc_sign=False):
     # The verifier runs from a copied payload with spaces, using its own Python,
     # and rejects any runtime dependency on the original checkout.
     run(sys.executable, ROOT / "release/verify_portable.py", payload, "--rid", rid)
-    archive_payload(payload, rid)
+    if thin:
+        archive = split_runtime(payload, output, rid, version)
+        if adhoc_sign and rid.startswith("osx"):
+            run("codesign", "--force", "--deep", "--sign", "-", output / "nam2zoom.app")
+        verify_download_package(output, rid, archive)
+    archive_payload(output, rid)
+
+
+def split_runtime(payload, output, rid, version):
+    from verify_portable import resource_root
+
+    source_runtime = resource_root(payload, rid) / "runtime"
+    shutil.copytree(payload, output, symlinks=True,
+                    ignore=lambda directory, _: ["python"] if Path(directory) == source_runtime else [])
+    archive = output.with_name(output.name + "-python.tar.gz")
+    resources = resource_root(payload, rid)
+    with tarfile.open(archive, "x:gz", compresslevel=6) as runtime:
+        runtime.add(source_runtime / "python", arcname="python")
+        runtime.add(resources / "LICENSE", arcname="LICENSE")
+        runtime.add(resources / "ThirdPartyLicenses", arcname="ThirdPartyLicenses")
+    with archive.open("rb") as stream:
+        checksum = hashlib.file_digest(stream, "sha256").hexdigest()
+    repository = os.environ.get("GITHUB_REPOSITORY", "freelender/nam-to-zoom")
+    manifest = {
+        "url": f"https://github.com/{repository}/releases/download/v{version}/{archive.name}",
+        "sha256": checksum,
+        "size": archive.stat().st_size,
+    }
+    (resource_root(output, rid) / "runtime/download.json").write_text(
+        json.dumps(manifest, indent=2) + "\n", encoding="utf-8")
+    return archive
+
+
+def verify_download_package(payload, rid, archive):
+    from verify_portable import resource_root
+
+    assert not (resource_root(payload, rid) / "runtime/python").exists()
+    executable = payload / ("nam2zoom.exe" if rid == "win-x64" else "nam2zoom.app/Contents/MacOS/nam2zoom")
+    with tempfile.TemporaryDirectory(prefix="nam2zoom first run ") as data:
+        env = os.environ.copy()
+        env["NAM2ZOOM_DATA_DIR"] = data
+        run(executable, "--install-runtime", archive, env=env)
+        run(executable, "--smoke-test", env=env)
 
 
 def archive_payload(payload, rid):
@@ -322,5 +372,6 @@ if __name__ == "__main__":
     parser.add_argument("--python", required=True, type=Path, help="uv managed Python 3.12 executable")
     parser.add_argument("--cuda", action="store_true", help="bundle Windows CUDA instead of CPU wheels")
     parser.add_argument("--adhoc-sign", action="store_true", help="optional macOS local ad-hoc bundle signature; no identity/account")
+    parser.add_argument("--thin", action="store_true", help="ship Python as a separate first-launch download")
     args = parser.parse_args()
-    build(args.rid, args.python.resolve(strict=True), args.cuda, args.adhoc_sign)
+    build(args.rid, args.python.resolve(strict=True), args.cuda, args.adhoc_sign, args.thin)
