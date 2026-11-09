@@ -16,6 +16,8 @@ dsp/nam_a2_own_host/compact_filters.h text eol=lf
 *.patch text eol=lf -whitespace
 *.py text eol=lf
 *.yml text eol=lf
+# The Waveformer loader verifies the exact upstream bytes.
+third_party/waveformer-nam/nam-core.cjs text eol=lf
 *.ZD2 binary
 *.ZIC binary
 *.wav binary

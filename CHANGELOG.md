@@ -1,5 +1,12 @@
 # Changelog
 
+## 2.0.1
+
+- Preserve the pinned Waveformer source checksum on Windows checkouts so the
+  portable release passes its regression suite.
+- Ship smaller Windows and macOS app ZIPs with a verified Python runtime
+  download on first launch and license notices in both downloads.
+
 ## 2.0.0
 
 - Ship smaller Windows and macOS app ZIPs with a verified Python runtime download on first launch.
